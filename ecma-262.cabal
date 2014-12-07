@@ -1,0 +1,69 @@
+name:              ecma262
+version:           0.0.0
+cabal-version:     >= 1.8
+build-type:        Simple
+
+Flag dev
+    Description:   Compile without optimizations.
+    Default:       False
+
+Flag prof
+    Description:   Compile with profiling.
+    Default:       False
+
+library
+    hs-source-dirs: src/
+    exposed-modules: Language.JavaScript
+                     Language.JavaScript.AST
+                     Language.JavaScript.Interpret
+                     --Language.JavaScript.JSON
+                     Language.JavaScript.Lexer
+                     Language.JavaScript.Parser
+                     Language.JavaScript.String
+                     --Language.JavaScript.URI
+                     Language.JavaScript.Util
+                     Language.JavaScript.SubType
+                     Language.JavaScript.Host
+                     Language.JavaScript.Host.Console
+
+    other-modules: Language.JavaScript.Prim
+
+    if flag(dev)
+        ghc-options: -Wall -Werror -O0 -fno-warn-orphans -fno-warn-unused-binds -fno-warn-unused-matches -threaded -rtsopts
+    else
+        if flag(prof)
+           ghc-options: -Wall -auto-all -caf-all -fno-warn-orphans -fno-warn-unused-binds -fno-warn-unused-matches -rtsopts
+        else
+           ghc-options: -Wall -O0 -fno-warn-orphans -fno-warn-unused-binds -fno-warn-unused-matches -threaded -rtsopts
+
+    extensions:
+
+    build-depends: base                          >= 4          && < 5
+                 , case-insensitive
+                 , containers
+                 , data-default
+                 , lens
+                 , parsec
+                 , regex-compat
+                 , safe
+                 , transformers
+                 , utf8-string
+
+executable ecma262
+    main-is: Main.hs
+
+    if flag(dev)
+        ghc-options: -Wall -Werror -O0 -fno-warn-orphans -fno-warn-unused-binds -fno-warn-unused-matches -threaded -rtsopts
+    else
+        if flag(prof)
+           ghc-options: -Wall -prof -auto-all -fno-warn-orphans -fno-warn-unused-binds -fno-warn-unused-matches -rtsopts
+        else
+           ghc-options: -Wall -O0 -fno-warn-orphans -fno-warn-unused-binds -fno-warn-unused-matches -threaded -rtsopts
+
+    other-modules: Main
+    build-depends: base                          >= 4          && < 5
+                 , ecma262
+                 , containers
+                 , lens
+                 , mtl
+                 , transformers
