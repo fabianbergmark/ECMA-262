@@ -15,81 +15,81 @@ import qualified Data.Map as Map (empty, fromList)
 
 console :: (Functor m, Monad m, MonadIO m) =>
            JavaScriptT m ()
-console = do
-  p <- use objectPrototypeObject
-  defineGlobalProperty $ do
-    consoleLogId <- createNextInternalId
-    let consoleLogObj = Object consoleLogId
-        consoleLogObjInt = ObjectInternal {
-          objectInternalProperties        = Map.empty,
-          objectInternalPrototype         = const $ return (JSExist p),
-          objectInternalClass             = const $ return "Function",
-          objectInternalExtensible        = const $ return True,
-          objectInternalGet               = getImpl,
-          objectInternalGetOwnProperty    = getOwnPropertyImpl,
-          objectInternalGetProperty       = getPropertyImpl,
-          objectInternalPut               = putImpl,
-          objectInternalCanPut            = canPutImpl,
-          objectInternalHasProperty       = hasPropertyImpl,
-          objectInternalDelete            = deleteImpl,
-          objectInternalDefaultValue      = defaultValueImpl,
-          objectInternalDefineOwnProperty = defineOwnPropertyImpl,
-          objectInternalPrimitiveValue    = Nothing,
-          objectInternalConstruct         = Nothing,
-          objectInternalCall              = Just consoleLogCallImpl,
-          objectInternalHasInstance       = Nothing,
-          objectInternalScope             = Nothing,
-          objectInternalFormalParameters  = Nothing,
-          objectInternalCode              = Nothing,
-          objectInternalTargetFunction    = Nothing,
-          objectInternalBoundThis         = Nothing,
-          objectInternalBoundArguments    = Nothing,
-          objectInternalMatch             = Nothing,
-          objectInternalParameterMap      = Nothing }
+console = defineGlobalProperty $ do
+  consoleLogId <- createNextInternalId
+  op <- use objectPrototypeObject
+  fp <- use functionPrototypeObject
+  let consoleLogObj = Object consoleLogId
+      consoleLogObjInt = ObjectInternal {
+        objectInternalProperties        = Map.empty,
+        objectInternalPrototype         = const $ return (JSExist fp),
+        objectInternalClass             = const $ return "Function",
+        objectInternalExtensible        = const $ return True,
+        objectInternalGet               = getImpl,
+        objectInternalGetOwnProperty    = getOwnPropertyImpl,
+        objectInternalGetProperty       = getPropertyImpl,
+        objectInternalPut               = putImpl,
+        objectInternalCanPut            = canPutImpl,
+        objectInternalHasProperty       = hasPropertyImpl,
+        objectInternalDelete            = deleteImpl,
+        objectInternalDefaultValue      = defaultValueImpl,
+        objectInternalDefineOwnProperty = defineOwnPropertyImpl,
+        objectInternalPrimitiveValue    = Nothing,
+        objectInternalConstruct         = Nothing,
+        objectInternalCall              = Just consoleLogCallImpl,
+        objectInternalHasInstance       = Nothing,
+        objectInternalScope             = Nothing,
+        objectInternalFormalParameters  = Nothing,
+        objectInternalCode              = Nothing,
+        objectInternalTargetFunction    = Nothing,
+        objectInternalBoundThis         = Nothing,
+        objectInternalBoundArguments    = Nothing,
+        objectInternalMatch             = Nothing,
+        objectInternalParameterMap      = Nothing }
 
-    mInternalObject consoleLogObj ?= consoleLogObjInt
+  mInternalObject consoleLogObj ?= consoleLogObjInt
 
-    consoleId <- createNextInternalId
-    let consoleObj = Object consoleId
-        consoleObjInt = ObjectInternal {
-          objectInternalProperties        = Map.fromList
-           [ ("log", PropertyData $ DataDescriptor {
-                 dataDescriptorValue          = inj consoleLogObj,
-                 dataDescriptorWritable       = True,
-                 dataDescriptorEnumerable     = False,
-                 dataDescriptorConfigurable   = True }) ],
-          objectInternalPrototype         = const $ return (JSExist p),
-          objectInternalClass             = const $ return "Object",
-          objectInternalExtensible        = const $ return True,
-          objectInternalGet               = getImpl,
-          objectInternalGetOwnProperty    = getOwnPropertyImpl,
-          objectInternalGetProperty       = getPropertyImpl,
-          objectInternalPut               = putImpl,
-          objectInternalCanPut            = canPutImpl,
-          objectInternalHasProperty       = hasPropertyImpl,
-          objectInternalDelete            = deleteImpl,
-          objectInternalDefaultValue      = defaultValueImpl,
-          objectInternalDefineOwnProperty = defineOwnPropertyImpl,
-          objectInternalPrimitiveValue    = Nothing,
-          objectInternalConstruct         = Nothing,
-          objectInternalCall              = Nothing,
-          objectInternalHasInstance       = Nothing,
-          objectInternalScope             = Nothing,
-          objectInternalFormalParameters  = Nothing,
-          objectInternalCode              = Nothing,
-          objectInternalTargetFunction    = Nothing,
-          objectInternalBoundThis         = Nothing,
-          objectInternalBoundArguments    = Nothing,
-          objectInternalMatch             = Nothing,
-          objectInternalParameterMap      = Nothing }
-
-    mInternalObject consoleObj ?= consoleObjInt
-
-    return ("console", PropertyData $ DataDescriptor {
-               dataDescriptorValue          = inj consoleObj,
+  consoleId <- createNextInternalId
+  let consoleObj = Object consoleId
+      consoleObjInt = ObjectInternal {
+        objectInternalProperties        = Map.fromList
+         [ ("log", PropertyData $ DataDescriptor {
+               dataDescriptorValue          = inj consoleLogObj,
                dataDescriptorWritable       = True,
                dataDescriptorEnumerable     = False,
-               dataDescriptorConfigurable   = True })
+               dataDescriptorConfigurable   = True }) ],
+        objectInternalPrototype         = const $ return (JSExist op),
+        objectInternalClass             = const $ return "Object",
+        objectInternalExtensible        = const $ return True,
+        objectInternalGet               = getImpl,
+        objectInternalGetOwnProperty    = getOwnPropertyImpl,
+        objectInternalGetProperty       = getPropertyImpl,
+        objectInternalPut               = putImpl,
+        objectInternalCanPut            = canPutImpl,
+        objectInternalHasProperty       = hasPropertyImpl,
+        objectInternalDelete            = deleteImpl,
+        objectInternalDefaultValue      = defaultValueImpl,
+        objectInternalDefineOwnProperty = defineOwnPropertyImpl,
+        objectInternalPrimitiveValue    = Nothing,
+        objectInternalConstruct         = Nothing,
+        objectInternalCall              = Nothing,
+        objectInternalHasInstance       = Nothing,
+        objectInternalScope             = Nothing,
+        objectInternalFormalParameters  = Nothing,
+        objectInternalCode              = Nothing,
+        objectInternalTargetFunction    = Nothing,
+        objectInternalBoundThis         = Nothing,
+        objectInternalBoundArguments    = Nothing,
+        objectInternalMatch             = Nothing,
+        objectInternalParameterMap      = Nothing }
+
+  mInternalObject consoleObj ?= consoleObjInt
+
+  return ("console", PropertyData $ DataDescriptor {
+             dataDescriptorValue          = inj consoleObj,
+             dataDescriptorWritable       = True,
+             dataDescriptorEnumerable     = False,
+             dataDescriptorConfigurable   = True })
 
 consoleLogCallImpl :: (Functor m, Monad m, MonadIO m) => InternalCallType m
 consoleLogCallImpl f this (List args) = do

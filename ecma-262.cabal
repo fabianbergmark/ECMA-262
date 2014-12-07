@@ -46,7 +46,7 @@ library
                  , parsec
                  , regex-compat
                  , safe
-                 , transformers
+                 , transformers                  >= 0.4
                  , utf8-string
 
 executable ecma262
@@ -65,5 +65,5 @@ executable ecma262
                  , ecma262
                  , containers
                  , lens
-                 , mtl
-                 , transformers
+                 , mtl                          >= 2
+                 , transformers                 > 0.4
