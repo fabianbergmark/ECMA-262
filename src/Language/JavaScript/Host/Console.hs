@@ -15,7 +15,7 @@ import qualified Data.Map as Map (empty, fromList)
 
 console :: (Functor m, Monad m, MonadIO m) =>
            JavaScriptT m ()
-console = defineGlobalProperty $ do
+console = do
   consoleLogId <- createNextInternalId
   op <- use objectPrototypeObject
   fp <- use functionPrototypeObject
@@ -85,11 +85,13 @@ console = defineGlobalProperty $ do
 
   mInternalObject consoleObj ?= consoleObjInt
 
-  return ("console", PropertyData $ DataDescriptor {
-             dataDescriptorValue          = inj consoleObj,
-             dataDescriptorWritable       = True,
-             dataDescriptorEnumerable     = False,
-             dataDescriptorConfigurable   = True })
+  defineGlobalProperty
+    "console"
+    (PropertyData DataDescriptor {
+        dataDescriptorValue          = inj consoleObj,
+        dataDescriptorWritable       = True,
+        dataDescriptorEnumerable     = False,
+        dataDescriptorConfigurable   = True })
 
 consoleLogCallImpl :: (Functor m, Monad m, MonadIO m) => InternalCallType m
 consoleLogCallImpl f this (List args) = do

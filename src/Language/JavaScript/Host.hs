@@ -5,9 +5,7 @@ import Control.Lens
 import Language.JavaScript.Interpret
 
 defineGlobalProperty :: (Monad m) =>
-                        JavaScriptT m (String, Property) ->
-                        JavaScriptT m ()
-defineGlobalProperty create = do
-  (i, p) <- create
+                        String -> Property -> JavaScriptT m ()
+defineGlobalProperty i p = do
   global <- use globalObject
   property global i ?= p
