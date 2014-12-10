@@ -142,7 +142,7 @@ instance (Functor m, Monad m) =>
 instance (Functor m, Monad m) =>
          Interpret ObjectLit (JavaScriptT m) Object where
   interpret ObjectLitEmpty = do
-    o <- newObject Nothing
+    o <- newObjectObject Nothing
     return o
 
   interpret (ObjectLit pl) = interpret pl
@@ -150,7 +150,7 @@ instance (Functor m, Monad m) =>
 instance (Functor m, Monad m) =>
          Interpret PropList (JavaScriptT m) Object where
   interpret (PropListAssign pa) = do
-    obj <- newObject Nothing
+    obj <- newObjectObject Nothing
     PropertyIdentifier name desc <- interpret pa
     defineOwnProperty obj name desc False
     return obj
@@ -624,7 +624,7 @@ instance (Functor m, Monad m) =>
     val <- interpret expr
     obj <- getValue val >>= toObject
     oldEnv <- Lens.use (contextStack . currentContext . lexicalEnvironment)
-    newEnv <- newObjectEnvironment obj (Just oldEnv)
+    newEnv <- newObjectObjectEnvironment obj (Just oldEnv)
     contextStack . currentContext . lexicalEnvironment .= newEnv
     c <- Except.catchE
          (interpret stmt :: JavaScriptT m Completion)
@@ -949,14 +949,14 @@ instance (Functor m, Monad m) =>
        case getBase ref of
         BaseUndefined _ -> do
           if isStrictReference ref
-            then jsThrow (inj syntaxError)
+            then newSyntaxErrorObject Nothing >>= jsThrow . inj
             else return $ inj True
         BaseProperty propertyBase -> do
           obj <- toObject $ inj propertyBase
           inj <$> delete obj (getReferencedName ref) (isStrictReference ref)
         BaseEnvironmentRecord environmentRecordBase -> do
            if isStrictReference ref
-             then jsThrow (inj syntaxError)
+             then newSyntaxErrorObject Nothing >>= jsThrow . inj
              else do
              inj <$> deleteBinding environmentRecordBase (getReferencedName ref)
 
@@ -988,7 +988,7 @@ instance (Functor m, Monad m) =>
             let name = getReferencedName ref
             if name == "eval" ||
                name == "arguments"
-              then jsThrow (inj syntaxError)
+              then newSyntaxErrorObject Nothing >>= jsThrow . inj
               else return ()
           Nothing -> return ()
          else return ()
@@ -1010,7 +1010,7 @@ instance (Functor m, Monad m) =>
             let name = getReferencedName ref
             if name == "eval" ||
                name == "arguments"
-              then jsThrow (inj syntaxError)
+              then newSyntaxErrorObject Nothing >>= jsThrow . inj
               else return ()
           Nothing -> return ()
          else return ()
@@ -1078,7 +1078,7 @@ instance (Functor m, Monad m) =>
     case constructor of
      ValueObject o -> do
        inj <$> construct o argList
-     _ -> jsThrow (inj typeError)
+     _ -> newTypeErrorObject Nothing >>= jsThrow . inj
 
 instance (Functor m, Monad m) =>
          Interpret NewExpr (JavaScriptT m) CallValue where
@@ -1089,7 +1089,7 @@ instance (Functor m, Monad m) =>
     case constructor of
      ValueObject o -> do
        inj <$> construct o (List [])
-     _ -> jsThrow (inj typeError)
+     _ -> newTypeErrorObject Nothing >>= jsThrow . inj
 
 
 instance (Functor m, Monad m) =>
@@ -1109,7 +1109,24 @@ instance (Functor m, Monad m) =>
                 implicitThisValue er
           _ -> return $ inj Undefined
        call o thisValue argList
-     _ -> jsThrow (inj typeError)
+     _ -> newTypeErrorObject Nothing >>= jsThrow . inj
+
+  interpret (CallExprCall ce args) = do
+    rv <- interpret ce
+    func <- getValue rv
+    argList <- interpret args
+    case func of
+     ValueObject o -> do
+       thisValue <-
+         case rv of
+          Left ref -> do
+            case toPropertyReference ref of
+              Right propertyBase -> return $ inj propertyBase
+              Left (Left er) -> do
+                implicitThisValue er
+          _ -> return $ inj Undefined
+       call o thisValue argList
+     _ -> newTypeErrorObject Nothing >>= jsThrow . inj
 
   interpret (CallExprArray ce expr) = do
     baseReference <- interpret ce
@@ -1120,6 +1137,13 @@ instance (Functor m, Monad m) =>
     propertyNameString <- toString propertyNameValue
     let strict = False
     return $ inj $ Reference (inj baseValueCoercible) propertyNameString strict
+
+  interpret (CallExprDot ce (IdentName s)) = do
+    baseReference <- interpret ce
+    baseValue <- getValue baseReference
+    baseValueCoercible <- toObjectCoercible baseValue
+    let strict = False
+    return $ inj $ Reference (inj baseValueCoercible) s strict
 
 instance (Functor m, Monad m) =>
          Interpret Arguments (JavaScriptT m) (List Value) where
@@ -1159,7 +1183,7 @@ instance (Functor m, Monad m) =>
           BaseEnvironmentRecord _ -> do
             let name = getReferencedName ref
             when (name == "eval" || name == "arguments") $
-              jsThrow (inj syntaxError)
+              newSyntaxErrorObject Nothing >>= jsThrow . inj
           _ -> return ()
      _ -> return ()
     oldValue <- getValue lhs >>= toNumber
@@ -1176,7 +1200,7 @@ instance (Functor m, Monad m) =>
           BaseEnvironmentRecord _ -> do
             let name = getReferencedName ref
             when (name == "eval" || name == "arguments") $
-              jsThrow (inj syntaxError)
+              newSyntaxErrorObject Nothing >>= jsThrow . inj
           _ -> return ()
      _ -> return ()
     oldValue <- getValue lhs >>= toNumber
@@ -1288,7 +1312,7 @@ instance (Functor m, Monad m) =>
     case rval of
      ValueObject o -> do
        inj <$> hasInstance o lval
-     _ -> jsThrow (inj typeError)
+     _ -> newTypeErrorObject Nothing >>= jsThrow . inj
 
   interpret (RelExprIn re se) = do
     lref <- interpret re
@@ -1296,7 +1320,7 @@ instance (Functor m, Monad m) =>
     rref <- interpret se
     rval <- getValue rref
     case prj rval of
-     Nothing -> jsThrow (inj typeError)
+     Nothing -> newTypeErrorObject Nothing >>= jsThrow . inj
      Just obj -> do
        s <- toString lval
        inj <$> hasProperty obj s
@@ -1353,7 +1377,7 @@ instance (Functor m, Monad m) =>
     case rval of
      ValueObject obj ->
        inj <$> hasInstance obj lval
-     _ -> jsThrow (inj typeError)
+     _ -> newTypeErrorObject Nothing >>= jsThrow . inj
 
 instance (Functor m, Monad m) =>
          Interpret EqExpr (JavaScriptT m) CallValue where
@@ -1573,7 +1597,7 @@ instance (Functor m, Monad m) =>
              typeOf (getBase ref) == TypeEnvironmentRecord &&
              (getReferencedName ref == "eval" ||
               getReferencedName ref == "arguments")) $ do
-         jsThrow (inj syntaxError)
+         newSyntaxErrorObject Nothing >>= jsThrow . inj
      _ -> return ()
     putValue lref rval
     return $ inj rval
@@ -1601,7 +1625,7 @@ instance (Functor m, Monad m) =>
              typeOf (getBase ref) == TypeEnvironmentRecord &&
              (getReferencedName ref == "eval" ||
               getReferencedName ref == "arguments")) $ do
-         jsThrow (inj syntaxError)
+         newSyntaxErrorObject Nothing >>= jsThrow . inj
      _ -> return ()
     putValue lref r
     return $ inj r
@@ -1620,7 +1644,7 @@ instance (Functor m, Monad m) =>
              typeOf (getBase ref) == TypeEnvironmentRecord &&
              (getReferencedName ref == "eval" ||
               getReferencedName ref == "arguments")) $ do
-         jsThrow (inj syntaxError)
+         newSyntaxErrorObject Nothing >>= jsThrow . inj
      Nothing -> return ()
     putValue lref rval
     return $ inj rval
@@ -1648,7 +1672,7 @@ instance (Functor m, Monad m) =>
              typeOf (getBase ref) == TypeEnvironmentRecord &&
              (getReferencedName ref == "eval" ||
               getReferencedName ref == "arguments")) $ do
-         jsThrow (inj syntaxError)
+         newSyntaxErrorObject Nothing >>= jsThrow . inj
      Nothing -> return ()
     putValue lref r
     return $ inj r
@@ -2378,8 +2402,30 @@ initialState =
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
       datePrototypeObject = Object 5
+      errorPrototypeObject = Object 6
       errorPrototypeObjectInternal = ObjectInternal {
-        objectInternalProperties        = Map.empty,
+        objectInternalProperties        =
+           Map.fromList
+           [ ("constructor", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj errorConstructor,
+                 dataDescriptorWritable = True,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False })
+           , ("name", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj "Error",
+                 dataDescriptorWritable = True,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False })
+           , ("message", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj "",
+                 dataDescriptorWritable = True,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False })
+           , ("toString", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj errorPrototypeToString,
+                 dataDescriptorWritable = True,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         = const $ return (JSExist objectPrototypeObject),
         objectInternalClass             = const $ return "Error",
         objectInternalExtensible        = const $ return True,
@@ -2404,7 +2450,272 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      errorPrototypeObject = Object 6
+      errorPrototypeToString = error "errorPrototypeToString" :: Object
+      evalErrorPrototypeObject = Object 7
+      evalErrorPrototypeObjectInternal :: (Functor m, Monad m) => ObjectInternal m
+      evalErrorPrototypeObjectInternal = ObjectInternal {
+        objectInternalProperties        =
+           Map.fromList
+           [ ("constructor", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj evalErrorConstructor,
+                 dataDescriptorWritable = True,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False })
+           , ("name", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj "EvalError",
+                 dataDescriptorWritable = True,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False })
+           , ("message", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj "",
+                 dataDescriptorWritable = True,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False }) ],
+        objectInternalPrototype         = const $ return (JSExist errorPrototypeObject),
+        objectInternalClass             = const $ return "Error",
+        objectInternalExtensible        = const $ return True,
+        objectInternalGet               = getImpl,
+        objectInternalGetOwnProperty    = getOwnPropertyImpl,
+        objectInternalGetProperty       = getPropertyImpl,
+        objectInternalPut               = putImpl,
+        objectInternalCanPut            = canPutImpl,
+        objectInternalHasProperty       = hasPropertyImpl,
+        objectInternalDelete            = deleteImpl,
+        objectInternalDefaultValue      = defaultValueImpl,
+        objectInternalDefineOwnProperty = defineOwnPropertyImpl,
+        objectInternalPrimitiveValue    = Nothing,
+        objectInternalConstruct         = Nothing,
+        objectInternalCall              = Nothing,
+        objectInternalHasInstance       = Nothing,
+        objectInternalScope             = Nothing,
+        objectInternalFormalParameters  = Nothing,
+        objectInternalCode              = Nothing,
+        objectInternalTargetFunction    = Nothing,
+        objectInternalBoundThis         = Nothing,
+        objectInternalBoundArguments    = Nothing,
+        objectInternalMatch             = Nothing,
+        objectInternalParameterMap      = Nothing }
+      rangeErrorPrototypeObject = Object 8
+      rangeErrorPrototypeObjectInternal :: (Functor m, Monad m) => ObjectInternal m
+      rangeErrorPrototypeObjectInternal = ObjectInternal {
+        objectInternalProperties        =
+           Map.fromList
+           [ ("constructor", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj rangeErrorConstructor,
+                 dataDescriptorWritable = True,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False })
+           , ("name", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj "EvalError",
+                 dataDescriptorWritable = True,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False })
+           , ("message", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj "",
+                 dataDescriptorWritable = True,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False }) ],
+        objectInternalPrototype         = const $ return (JSExist errorPrototypeObject),
+        objectInternalClass             = const $ return "Error",
+        objectInternalExtensible        = const $ return True,
+        objectInternalGet               = getImpl,
+        objectInternalGetOwnProperty    = getOwnPropertyImpl,
+        objectInternalGetProperty       = getPropertyImpl,
+        objectInternalPut               = putImpl,
+        objectInternalCanPut            = canPutImpl,
+        objectInternalHasProperty       = hasPropertyImpl,
+        objectInternalDelete            = deleteImpl,
+        objectInternalDefaultValue      = defaultValueImpl,
+        objectInternalDefineOwnProperty = defineOwnPropertyImpl,
+        objectInternalPrimitiveValue    = Nothing,
+        objectInternalConstruct         = Nothing,
+        objectInternalCall              = Nothing,
+        objectInternalHasInstance       = Nothing,
+        objectInternalScope             = Nothing,
+        objectInternalFormalParameters  = Nothing,
+        objectInternalCode              = Nothing,
+        objectInternalTargetFunction    = Nothing,
+        objectInternalBoundThis         = Nothing,
+        objectInternalBoundArguments    = Nothing,
+        objectInternalMatch             = Nothing,
+        objectInternalParameterMap      = Nothing }
+      referenceErrorPrototypeObject = Object 9
+      referenceErrorPrototypeObjectInternal :: (Functor m, Monad m) => ObjectInternal m
+      referenceErrorPrototypeObjectInternal = ObjectInternal {
+        objectInternalProperties        =
+           Map.fromList
+           [ ("constructor", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj referenceErrorConstructor,
+                 dataDescriptorWritable = True,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False })
+           , ("name", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj "EvalError",
+                 dataDescriptorWritable = True,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False })
+           , ("message", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj "",
+                 dataDescriptorWritable = True,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False }) ],
+        objectInternalPrototype         = const $ return (JSExist errorPrototypeObject),
+        objectInternalClass             = const $ return "Error",
+        objectInternalExtensible        = const $ return True,
+        objectInternalGet               = getImpl,
+        objectInternalGetOwnProperty    = getOwnPropertyImpl,
+        objectInternalGetProperty       = getPropertyImpl,
+        objectInternalPut               = putImpl,
+        objectInternalCanPut            = canPutImpl,
+        objectInternalHasProperty       = hasPropertyImpl,
+        objectInternalDelete            = deleteImpl,
+        objectInternalDefaultValue      = defaultValueImpl,
+        objectInternalDefineOwnProperty = defineOwnPropertyImpl,
+        objectInternalPrimitiveValue    = Nothing,
+        objectInternalConstruct         = Nothing,
+        objectInternalCall              = Nothing,
+        objectInternalHasInstance       = Nothing,
+        objectInternalScope             = Nothing,
+        objectInternalFormalParameters  = Nothing,
+        objectInternalCode              = Nothing,
+        objectInternalTargetFunction    = Nothing,
+        objectInternalBoundThis         = Nothing,
+        objectInternalBoundArguments    = Nothing,
+        objectInternalMatch             = Nothing,
+        objectInternalParameterMap      = Nothing }
+      syntaxErrorPrototypeObject = Object 10
+      syntaxErrorPrototypeObjectInternal :: (Functor m, Monad m) => ObjectInternal m
+      syntaxErrorPrototypeObjectInternal = ObjectInternal {
+        objectInternalProperties        =
+           Map.fromList
+           [ ("constructor", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj syntaxErrorConstructor,
+                 dataDescriptorWritable = True,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False })
+           , ("name", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj "EvalError",
+                 dataDescriptorWritable = True,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False })
+           , ("message", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj "",
+                 dataDescriptorWritable = True,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False }) ],
+        objectInternalPrototype         = const $ return (JSExist errorPrototypeObject),
+        objectInternalClass             = const $ return "Error",
+        objectInternalExtensible        = const $ return True,
+        objectInternalGet               = getImpl,
+        objectInternalGetOwnProperty    = getOwnPropertyImpl,
+        objectInternalGetProperty       = getPropertyImpl,
+        objectInternalPut               = putImpl,
+        objectInternalCanPut            = canPutImpl,
+        objectInternalHasProperty       = hasPropertyImpl,
+        objectInternalDelete            = deleteImpl,
+        objectInternalDefaultValue      = defaultValueImpl,
+        objectInternalDefineOwnProperty = defineOwnPropertyImpl,
+        objectInternalPrimitiveValue    = Nothing,
+        objectInternalConstruct         = Nothing,
+        objectInternalCall              = Nothing,
+        objectInternalHasInstance       = Nothing,
+        objectInternalScope             = Nothing,
+        objectInternalFormalParameters  = Nothing,
+        objectInternalCode              = Nothing,
+        objectInternalTargetFunction    = Nothing,
+        objectInternalBoundThis         = Nothing,
+        objectInternalBoundArguments    = Nothing,
+        objectInternalMatch             = Nothing,
+        objectInternalParameterMap      = Nothing }
+      typeErrorPrototypeObject = Object 11
+      typeErrorPrototypeObjectInternal :: (Functor m, Monad m) => ObjectInternal m
+      typeErrorPrototypeObjectInternal = ObjectInternal {
+        objectInternalProperties        =
+           Map.fromList
+           [ ("constructor", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj typeErrorConstructor,
+                 dataDescriptorWritable = True,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False })
+           , ("name", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj "EvalError",
+                 dataDescriptorWritable = True,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False })
+           , ("message", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj "",
+                 dataDescriptorWritable = True,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False }) ],
+        objectInternalPrototype         = const $ return (JSExist errorPrototypeObject),
+        objectInternalClass             = const $ return "Error",
+        objectInternalExtensible        = const $ return True,
+        objectInternalGet               = getImpl,
+        objectInternalGetOwnProperty    = getOwnPropertyImpl,
+        objectInternalGetProperty       = getPropertyImpl,
+        objectInternalPut               = putImpl,
+        objectInternalCanPut            = canPutImpl,
+        objectInternalHasProperty       = hasPropertyImpl,
+        objectInternalDelete            = deleteImpl,
+        objectInternalDefaultValue      = defaultValueImpl,
+        objectInternalDefineOwnProperty = defineOwnPropertyImpl,
+        objectInternalPrimitiveValue    = Nothing,
+        objectInternalConstruct         = Nothing,
+        objectInternalCall              = Nothing,
+        objectInternalHasInstance       = Nothing,
+        objectInternalScope             = Nothing,
+        objectInternalFormalParameters  = Nothing,
+        objectInternalCode              = Nothing,
+        objectInternalTargetFunction    = Nothing,
+        objectInternalBoundThis         = Nothing,
+        objectInternalBoundArguments    = Nothing,
+        objectInternalMatch             = Nothing,
+        objectInternalParameterMap      = Nothing }
+      uriErrorPrototypeObject = Object 12
+      uriErrorPrototypeObjectInternal :: (Functor m, Monad m) => ObjectInternal m
+      uriErrorPrototypeObjectInternal = ObjectInternal {
+        objectInternalProperties        =
+           Map.fromList
+           [ ("constructor", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj uriErrorConstructor,
+                 dataDescriptorWritable = True,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False })
+           , ("name", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj "EvalError",
+                 dataDescriptorWritable = True,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False })
+           , ("message", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj "",
+                 dataDescriptorWritable = True,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False }) ],
+        objectInternalPrototype         = const $ return (JSExist errorPrototypeObject),
+        objectInternalClass             = const $ return "Error",
+        objectInternalExtensible        = const $ return True,
+        objectInternalGet               = getImpl,
+        objectInternalGetOwnProperty    = getOwnPropertyImpl,
+        objectInternalGetProperty       = getPropertyImpl,
+        objectInternalPut               = putImpl,
+        objectInternalCanPut            = canPutImpl,
+        objectInternalHasProperty       = hasPropertyImpl,
+        objectInternalDelete            = deleteImpl,
+        objectInternalDefaultValue      = defaultValueImpl,
+        objectInternalDefineOwnProperty = defineOwnPropertyImpl,
+        objectInternalPrimitiveValue    = Nothing,
+        objectInternalConstruct         = Nothing,
+        objectInternalCall              = Nothing,
+        objectInternalHasInstance       = Nothing,
+        objectInternalScope             = Nothing,
+        objectInternalFormalParameters  = Nothing,
+        objectInternalCode              = Nothing,
+        objectInternalTargetFunction    = Nothing,
+        objectInternalBoundThis         = Nothing,
+        objectInternalBoundArguments    = Nothing,
+        objectInternalMatch             = Nothing,
+        objectInternalParameterMap      = Nothing }
+      functionPrototypeObjectInternal :: (Functor m, Monad m) => ObjectInternal m
       functionPrototypeObjectInternal = ObjectInternal {
         objectInternalProperties        =
            Map.fromList
@@ -3150,19 +3461,278 @@ initialState =
       regExpConstructor = Object 19
       regExpConstructorInternal = error "regExpConstructorInternal"
       errorConstructor = Object 20
-      errorConstructorInternal = error "errorConstructorInternal"
+      errorConstructorInternal = ObjectInternal {
+        objectInternalProperties        =
+           Map.fromList
+           [ ("length", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj $ Number 1,
+                 dataDescriptorWritable = False,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False })
+           , ("prototype", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj errorPrototypeObject,
+                 dataDescriptorWritable = False,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False }) ],
+        objectInternalPrototype         =
+          const $ return (JSExist functionPrototypeObject),
+        objectInternalClass             = const $ return "Error",
+        objectInternalExtensible        = const $ return True,
+        objectInternalGet               = getImpl,
+        objectInternalGetOwnProperty    = getOwnPropertyImpl,
+        objectInternalGetProperty       = getPropertyImpl,
+        objectInternalPut               = putImpl,
+        objectInternalCanPut            = canPutImpl,
+        objectInternalHasProperty       = hasPropertyImpl,
+        objectInternalDelete            = deleteImpl,
+        objectInternalDefaultValue      = defaultValueImpl,
+        objectInternalDefineOwnProperty = defineOwnPropertyImpl,
+        objectInternalPrimitiveValue    = Nothing,
+        objectInternalConstruct         = Just errorConstructorConstructImpl,
+        objectInternalCall              = Just errorConstructorCallImpl,
+        objectInternalHasInstance       = Nothing,
+        objectInternalScope             = Nothing,
+        objectInternalFormalParameters  = Nothing,
+        objectInternalCode              = Nothing,
+        objectInternalTargetFunction    = Nothing,
+        objectInternalBoundThis         = Nothing,
+        objectInternalBoundArguments    = Nothing,
+        objectInternalMatch             = Nothing,
+        objectInternalParameterMap      = Nothing }
       evalErrorConstructor = Object 21
-      evalErrorConstructorInternal = error "evalErrorConstructorInternal"
+      evalErrorConstructorInternal = ObjectInternal {
+        objectInternalProperties        =
+           Map.fromList
+           [ ("length", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj $ Number 1,
+                 dataDescriptorWritable = False,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False })
+           , ("prototype", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj evalErrorPrototypeObject,
+                 dataDescriptorWritable = False,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False }) ],
+        objectInternalPrototype         =
+          const $ return (JSExist functionPrototypeObject),
+        objectInternalClass             = const $ return "EvalError",
+        objectInternalExtensible        = const $ return True,
+        objectInternalGet               = getImpl,
+        objectInternalGetOwnProperty    = getOwnPropertyImpl,
+        objectInternalGetProperty       = getPropertyImpl,
+        objectInternalPut               = putImpl,
+        objectInternalCanPut            = canPutImpl,
+        objectInternalHasProperty       = hasPropertyImpl,
+        objectInternalDelete            = deleteImpl,
+        objectInternalDefaultValue      = defaultValueImpl,
+        objectInternalDefineOwnProperty = defineOwnPropertyImpl,
+        objectInternalPrimitiveValue    = Nothing,
+        objectInternalConstruct         = Just errorConstructorConstructImpl,
+        objectInternalCall              = Just errorConstructorCallImpl,
+        objectInternalHasInstance       = Nothing,
+        objectInternalScope             = Nothing,
+        objectInternalFormalParameters  = Nothing,
+        objectInternalCode              = Nothing,
+        objectInternalTargetFunction    = Nothing,
+        objectInternalBoundThis         = Nothing,
+        objectInternalBoundArguments    = Nothing,
+        objectInternalMatch             = Nothing,
+        objectInternalParameterMap      = Nothing }
       rangeErrorConstructor = Object 22
-      rangeErrorConstructorInternal = error "rangeErrorConstructorInternal"
+      rangeErrorConstructorInternal = ObjectInternal {
+        objectInternalProperties        =
+           Map.fromList
+           [ ("length", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj $ Number 1,
+                 dataDescriptorWritable = False,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False })
+           , ("prototype", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj rangeErrorPrototypeObject,
+                 dataDescriptorWritable = False,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False }) ],
+        objectInternalPrototype         =
+          const $ return (JSExist functionPrototypeObject),
+        objectInternalClass             = const $ return "EvalError",
+        objectInternalExtensible        = const $ return True,
+        objectInternalGet               = getImpl,
+        objectInternalGetOwnProperty    = getOwnPropertyImpl,
+        objectInternalGetProperty       = getPropertyImpl,
+        objectInternalPut               = putImpl,
+        objectInternalCanPut            = canPutImpl,
+        objectInternalHasProperty       = hasPropertyImpl,
+        objectInternalDelete            = deleteImpl,
+        objectInternalDefaultValue      = defaultValueImpl,
+        objectInternalDefineOwnProperty = defineOwnPropertyImpl,
+        objectInternalPrimitiveValue    = Nothing,
+        objectInternalConstruct         = Just errorConstructorConstructImpl,
+        objectInternalCall              = Just errorConstructorCallImpl,
+        objectInternalHasInstance       = Nothing,
+        objectInternalScope             = Nothing,
+        objectInternalFormalParameters  = Nothing,
+        objectInternalCode              = Nothing,
+        objectInternalTargetFunction    = Nothing,
+        objectInternalBoundThis         = Nothing,
+        objectInternalBoundArguments    = Nothing,
+        objectInternalMatch             = Nothing,
+        objectInternalParameterMap      = Nothing }
       referenceErrorConstructor = Object 23
-      referenceErrorConstructorInternal = error "referenceErrorConstructorInternal"
+      referenceErrorConstructorInternal = ObjectInternal {
+        objectInternalProperties        =
+           Map.fromList
+           [ ("length", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj $ Number 1,
+                 dataDescriptorWritable = False,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False })
+           , ("prototype", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj referenceErrorPrototypeObject,
+                 dataDescriptorWritable = False,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False }) ],
+        objectInternalPrototype         =
+          const $ return (JSExist functionPrototypeObject),
+        objectInternalClass             = const $ return "EvalError",
+        objectInternalExtensible        = const $ return True,
+        objectInternalGet               = getImpl,
+        objectInternalGetOwnProperty    = getOwnPropertyImpl,
+        objectInternalGetProperty       = getPropertyImpl,
+        objectInternalPut               = putImpl,
+        objectInternalCanPut            = canPutImpl,
+        objectInternalHasProperty       = hasPropertyImpl,
+        objectInternalDelete            = deleteImpl,
+        objectInternalDefaultValue      = defaultValueImpl,
+        objectInternalDefineOwnProperty = defineOwnPropertyImpl,
+        objectInternalPrimitiveValue    = Nothing,
+        objectInternalConstruct         = Just errorConstructorConstructImpl,
+        objectInternalCall              = Just errorConstructorCallImpl,
+        objectInternalHasInstance       = Nothing,
+        objectInternalScope             = Nothing,
+        objectInternalFormalParameters  = Nothing,
+        objectInternalCode              = Nothing,
+        objectInternalTargetFunction    = Nothing,
+        objectInternalBoundThis         = Nothing,
+        objectInternalBoundArguments    = Nothing,
+        objectInternalMatch             = Nothing,
+        objectInternalParameterMap      = Nothing }
       syntaxErrorConstructor = Object 24
-      syntaxErrorConstructorInternal = error "syntaxErrorConstructorInternal"
+      syntaxErrorConstructorInternal = ObjectInternal {
+        objectInternalProperties        =
+           Map.fromList
+           [ ("length", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj $ Number 1,
+                 dataDescriptorWritable = False,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False })
+           , ("prototype", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj syntaxErrorPrototypeObject,
+                 dataDescriptorWritable = False,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False }) ],
+        objectInternalPrototype         =
+          const $ return (JSExist functionPrototypeObject),
+        objectInternalClass             = const $ return "EvalError",
+        objectInternalExtensible        = const $ return True,
+        objectInternalGet               = getImpl,
+        objectInternalGetOwnProperty    = getOwnPropertyImpl,
+        objectInternalGetProperty       = getPropertyImpl,
+        objectInternalPut               = putImpl,
+        objectInternalCanPut            = canPutImpl,
+        objectInternalHasProperty       = hasPropertyImpl,
+        objectInternalDelete            = deleteImpl,
+        objectInternalDefaultValue      = defaultValueImpl,
+        objectInternalDefineOwnProperty = defineOwnPropertyImpl,
+        objectInternalPrimitiveValue    = Nothing,
+        objectInternalConstruct         = Just errorConstructorConstructImpl,
+        objectInternalCall              = Just errorConstructorCallImpl,
+        objectInternalHasInstance       = Nothing,
+        objectInternalScope             = Nothing,
+        objectInternalFormalParameters  = Nothing,
+        objectInternalCode              = Nothing,
+        objectInternalTargetFunction    = Nothing,
+        objectInternalBoundThis         = Nothing,
+        objectInternalBoundArguments    = Nothing,
+        objectInternalMatch             = Nothing,
+        objectInternalParameterMap      = Nothing }
       typeErrorConstructor = Object 25
-      typeErrorConstructorInternal = error "typeErrorConstructorInternal"
+      typeErrorConstructorInternal = ObjectInternal {
+        objectInternalProperties        =
+           Map.fromList
+           [ ("length", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj $ Number 1,
+                 dataDescriptorWritable = False,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False })
+           , ("prototype", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj typeErrorPrototypeObject,
+                 dataDescriptorWritable = False,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False }) ],
+        objectInternalPrototype         =
+          const $ return (JSExist functionPrototypeObject),
+        objectInternalClass             = const $ return "EvalError",
+        objectInternalExtensible        = const $ return True,
+        objectInternalGet               = getImpl,
+        objectInternalGetOwnProperty    = getOwnPropertyImpl,
+        objectInternalGetProperty       = getPropertyImpl,
+        objectInternalPut               = putImpl,
+        objectInternalCanPut            = canPutImpl,
+        objectInternalHasProperty       = hasPropertyImpl,
+        objectInternalDelete            = deleteImpl,
+        objectInternalDefaultValue      = defaultValueImpl,
+        objectInternalDefineOwnProperty = defineOwnPropertyImpl,
+        objectInternalPrimitiveValue    = Nothing,
+        objectInternalConstruct         = Just errorConstructorConstructImpl,
+        objectInternalCall              = Just errorConstructorCallImpl,
+        objectInternalHasInstance       = Nothing,
+        objectInternalScope             = Nothing,
+        objectInternalFormalParameters  = Nothing,
+        objectInternalCode              = Nothing,
+        objectInternalTargetFunction    = Nothing,
+        objectInternalBoundThis         = Nothing,
+        objectInternalBoundArguments    = Nothing,
+        objectInternalMatch             = Nothing,
+        objectInternalParameterMap      = Nothing }
       uriErrorConstructor = Object 26
-      uriErrorConstructorInternal = error "uriErrorConstructorInternal"
+      uriErrorConstructorInternal = ObjectInternal {
+        objectInternalProperties        =
+           Map.fromList
+           [ ("length", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj $ Number 1,
+                 dataDescriptorWritable = False,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False })
+           , ("prototype", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj uriErrorPrototypeObject,
+                 dataDescriptorWritable = False,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False }) ],
+        objectInternalPrototype         =
+          const $ return (JSExist functionPrototypeObject),
+        objectInternalClass             = const $ return "EvalError",
+        objectInternalExtensible        = const $ return True,
+        objectInternalGet               = getImpl,
+        objectInternalGetOwnProperty    = getOwnPropertyImpl,
+        objectInternalGetProperty       = getPropertyImpl,
+        objectInternalPut               = putImpl,
+        objectInternalCanPut            = canPutImpl,
+        objectInternalHasProperty       = hasPropertyImpl,
+        objectInternalDelete            = deleteImpl,
+        objectInternalDefaultValue      = defaultValueImpl,
+        objectInternalDefineOwnProperty = defineOwnPropertyImpl,
+        objectInternalPrimitiveValue    = Nothing,
+        objectInternalConstruct         = Just errorConstructorConstructImpl,
+        objectInternalCall              = Just errorConstructorCallImpl,
+        objectInternalHasInstance       = Nothing,
+        objectInternalScope             = Nothing,
+        objectInternalFormalParameters  = Nothing,
+        objectInternalCode              = Nothing,
+        objectInternalTargetFunction    = Nothing,
+        objectInternalBoundThis         = Nothing,
+        objectInternalBoundArguments    = Nothing,
+        objectInternalMatch             = Nothing,
+        objectInternalParameterMap      = Nothing }
       mathObject = Object 27
       mathObjectInternal :: (Functor m, Monad m) => ObjectInternal m
       mathObjectInternal = ObjectInternal {
@@ -3775,7 +4345,7 @@ getValue sub = do
    CallValueReference ref -> do
      let base = getBase ref
      case toUnresolvableReference ref of
-       Left _ -> jsThrow (inj referenceError)
+       Left _ -> newReferenceErrorObject Nothing >>= jsThrow . inj
        Right resolvableBase -> do
          case resolvableBase of
           Right propertyBase -> do
@@ -3807,13 +4377,13 @@ putValue :: (SubType v1 CallValue, SubType v2 Value) =>
             v1 -> v2 -> JavaScriptM ()
 putValue rv w = do
   case (inj rv :: CallValue) of
-   Right _ -> jsThrow (inj referenceError)
+   Right _ -> newReferenceErrorObject Nothing >>= jsThrow . inj
    Left ref -> do
      let base = getBase ref
      case toUnresolvableReference ref of
       Left _ -> do
         if isStrictReference ref
-          then jsThrow (inj referenceError)
+          then newReferenceErrorObject Nothing >>= jsThrow . inj
           else do
           global <- Lens.use globalObject
           put global (getReferencedName ref) (inj w) False
@@ -3831,14 +4401,14 @@ putValue rv w = do
               if not c
                 then do
                 if throw
-                  then jsThrow (inj typeError)
+                  then newTypeErrorObject Nothing >>= jsThrow . inj
                   else return ()
                 else do
                 ownDesc <- getOwnProperty o p
                 if isDataDescriptor ownDesc
                   then
                   if throw
-                  then jsThrow (inj typeError)
+                  then newTypeErrorObject Nothing >>= jsThrow . inj
                   else return ()
                   else do
                   desc <- getProperty o p
@@ -3849,7 +4419,7 @@ putValue rv w = do
                      return ()
                    JSNothing -> do
                      if throw
-                       then jsThrow (inj typeError)
+                       then newTypeErrorObject Nothing >>= jsThrow . inj
                        else return ()
          Left environmentRecordBase -> do
            setMutableBinding
@@ -3981,7 +4551,7 @@ isGenericDescriptor desc =
 
 fromPropertyDescriptor :: JSMaybe PropertyDescriptor -> JavaScriptM (JSMaybe Object)
 fromPropertyDescriptor mdesc = do
-  o <- newObject Nothing
+  o <- newObjectObject Nothing
   case mdesc of
    JSNothing -> return JSNothing
    JSJust desc@(PropertyDescriptor {..}) -> do
@@ -4073,8 +4643,8 @@ newDeclarativeEnvironment e = do
   mLexicalEnvironmentInternal env ?= envInternal
   return env
 
-newObjectEnvironment :: Object -> Maybe LexicalEnvironment -> JavaScriptM LexicalEnvironment
-newObjectEnvironment o e = do
+newObjectObjectEnvironment :: Object -> Maybe LexicalEnvironment -> JavaScriptM LexicalEnvironment
+newObjectObjectEnvironment o e = do
   ier <- createNextInternalId
   ile <- createNextInternalId
   let envrecInternal = EnvironmentRecordInternalObject (ObjectEnvironmentRecord o False)
@@ -4306,7 +4876,7 @@ setMutableBindingDeclarative envRec n v s = do
        internalDeclarativeEnvironmentRecordBinding n ?= binding
    Just (DeclarativeBindingImmutable {}) ->
      if s
-     then jsThrow (inj typeError)
+     then newTypeErrorObject Nothing >>= jsThrow . inj
      else return ()
 
 setMutableBindingObject :: ObjectEnvironmentRecord ->
@@ -4334,7 +4904,7 @@ getBindingValueDeclarative envRec n s = do
    Just (DeclarativeBindingImmutable v False) ->
      if not s
      then return (inj Undefined)
-     else jsThrow (inj referenceError)
+     else newReferenceErrorObject Nothing >>= jsThrow . inj
    Just (DeclarativeBindingImmutable v _) -> return v
    Just (DeclarativeBindingMutable v _) -> return v
 
@@ -4347,7 +4917,7 @@ getBindingValueObject envRec n s = do
     then do
     if not s
       then return (inj Undefined)
-      else jsThrow (inj referenceError)
+      else newReferenceErrorObject Nothing >>= jsThrow . inj
     else get bindings n
 
 deleteBinding :: EnvironmentRecord -> String -> JavaScriptM Bool
@@ -4726,7 +5296,7 @@ callInternalOptionalProperty o p = do
   oi <- Lens.use $ internalObject o
   case p oi of
    Just op -> op o
-   Nothing -> jsThrow (inj typeError)
+   Nothing -> newTypeErrorObject Nothing >>= jsThrow . inj
 
 callInternalOptionalProperty1 :: (Functor m, Monad m) =>
                                  Object ->
@@ -4738,7 +5308,7 @@ callInternalOptionalProperty1 o p a = do
   oi <- Lens.use $ internalObject o
   case p oi of
    Just op -> op o a
-   Nothing -> jsThrow (inj typeError)
+   Nothing -> newTypeErrorObject Nothing >>= jsThrow . inj
 
 callInternalOptionalProperty2 :: (Functor m, Monad m) =>
                                  Object ->
@@ -4750,7 +5320,7 @@ callInternalOptionalProperty2 o p a b = do
   oi <- Lens.use $ internalObject o
   case p oi of
    Just op -> op o a b
-   Nothing -> jsThrow (inj typeError)
+   Nothing -> newTypeErrorObject Nothing >>= jsThrow . inj
 
 callInternalOptionalProperty3 :: (Functor m, Monad m) =>
                                  Object ->
@@ -4762,7 +5332,7 @@ callInternalOptionalProperty3 o p a b c = do
   oi <- Lens.use $ internalObject o
   case p oi of
    Just op -> op o a b c
-   Nothing -> jsThrow (inj typeError)
+   Nothing -> newTypeErrorObject Nothing >>= jsThrow . inj
 
 getOwnPropertyImpl :: Object -> String -> JavaScriptM (JSMaybe PropertyDescriptor)
 getOwnPropertyImpl o p = do
@@ -4847,7 +5417,7 @@ putImpl o p v throw = do
   if not c
     then do
     if throw
-      then jsThrow (inj typeError)
+      then newTypeErrorObject Nothing >>= jsThrow . inj
       else return ()
     else do
     ownDesc <- getOwnProperty o p
@@ -4892,7 +5462,7 @@ deleteImpl o p throw = do
        return True
        else do
        if throw
-         then jsThrow (inj typeError)
+         then newTypeErrorObject Nothing >>= jsThrow . inj
          else return False
 
 data Hint
@@ -4920,8 +5490,8 @@ defaultValueImpl o (Just HintString) = do
          val <- call c (inj o) (List [])
          case val of
           CallValuePrimitive p -> return p
-          _ -> jsThrow (inj typeError)
-       Nothing -> jsThrow (inj typeError)
+          _ -> newTypeErrorObject Nothing >>= jsThrow . inj
+       Nothing -> newTypeErrorObject Nothing >>= jsThrow . inj
 
 defaultValueImpl o (Just HintNumber) = do
   valueOf <- get o "valueOf"
@@ -4942,8 +5512,8 @@ defaultValueImpl o (Just HintNumber) = do
          str <- call c (inj o) (List [])
          case str of
           CallValuePrimitive p -> return p
-          _ -> jsThrow (inj typeError)
-       Nothing -> jsThrow (inj typeError)
+          _ -> newTypeErrorObject Nothing >>= jsThrow . inj
+       Nothing -> newTypeErrorObject Nothing >>= jsThrow . inj
 
 defaultValueImpl o Nothing = defaultValueImpl o (Just HintNumber)
 
@@ -5001,7 +5571,7 @@ newFunctionObject mfpl fb scope strict = do
       propertyDescriptorEnumerable   = Just False,
       propertyDescriptorConfigurable = Just False }
     False
-  proto <- newObject Nothing
+  proto <- newObjectObject Nothing
   defineOwnProperty
     proto
     "constructor"
@@ -5182,7 +5752,7 @@ arrayDefineOwnPropertyImpl a p desc throw = do
        newLen <- toUint32 v
        curLen <- toNumber v
        if fromIntegral newLen /= curLen
-         then jsThrow (inj rangeError)
+         then newRangeErrorObject Nothing >>= jsThrow . inj
          else do
          let newLenDesc = desc {
                propertyDescriptorValue = Just (inj $ Number $ fromIntegral newLen) }
@@ -5258,7 +5828,7 @@ arrayDefineOwnPropertyImpl a p desc throw = do
     reject :: JavaScriptM Bool
     reject =
       if throw
-      then jsThrow (inj typeError)
+      then newTypeErrorObject Nothing >>= jsThrow . inj
       else return False
 
 newBooleanObject :: Value ->
@@ -5360,6 +5930,399 @@ numberConstructorConstructImpl _ (List vs) = do
    (v:_) -> newNumberObject (Just v)
    _ -> newNumberObject Nothing
 
+newErrorObject :: Maybe Value ->
+                  JavaScriptM Object
+newErrorObject mv = do
+  i <- createNextInternalId
+  properties <- case mv of
+                 Nothing -> return []
+                 Just (ValueUndefined _) -> return []
+                 Just v -> do
+                   s <- toString v
+                   return [ ("message", PropertyData $ DataDescriptor {
+                                dataDescriptorValue          = inj s,
+                                dataDescriptorWritable       = False,
+                                dataDescriptorEnumerable     = False,
+                                dataDescriptorConfigurable   = False }) ]
+  error <- Lens.use errorPrototypeObject
+  let n = Object i
+      oi = ObjectInternal {
+        objectInternalProperties        = Map.fromList properties,
+        objectInternalPrototype         = const $ return (JSExist error),
+        objectInternalClass             = const $ return "Error",
+        objectInternalExtensible        = const $ return True,
+        objectInternalGet               = getImpl,
+        objectInternalGetOwnProperty    = getOwnPropertyImpl,
+        objectInternalGetProperty       = getPropertyImpl,
+        objectInternalPut               = putImpl,
+        objectInternalCanPut            = canPutImpl,
+        objectInternalHasProperty       = hasPropertyImpl,
+        objectInternalDelete            = deleteImpl,
+        objectInternalDefaultValue      = defaultValueImpl,
+        objectInternalDefineOwnProperty = defineOwnPropertyImpl,
+        objectInternalPrimitiveValue    = Nothing,
+        objectInternalConstruct         = Nothing,
+        objectInternalCall              = Nothing,
+        objectInternalHasInstance       = Nothing,
+        objectInternalScope             = Nothing,
+        objectInternalFormalParameters  = Nothing,
+        objectInternalCode              = Nothing,
+        objectInternalTargetFunction    = Nothing,
+        objectInternalBoundThis         = Nothing,
+        objectInternalBoundArguments    = Nothing,
+        objectInternalMatch             = Nothing,
+        objectInternalParameterMap      = Nothing }
+  mInternalObject n ?= oi
+  return n
+
+errorConstructorCallImpl :: (Functor m, Monad m) =>
+                            InternalCallType m
+errorConstructorCallImpl e _ args = do
+  inj <$> errorConstructorConstructImpl e args
+
+errorConstructorConstructImpl :: (Functor m, Monad m) =>
+                                 InternalConstructType m
+errorConstructorConstructImpl _ (List vs) = do
+  case vs of
+   (v:_) -> newErrorObject (Just v)
+   _ -> newErrorObject Nothing
+
+newEvalErrorObject :: Maybe Value -> JavaScriptM Object
+newEvalErrorObject mv = do
+  i <- createNextInternalId
+  properties <- case mv of
+                 Nothing -> return []
+                 Just (ValueUndefined _) -> return []
+                 Just v -> do
+                   s <- toString v
+                   return [ ("message", PropertyData $ DataDescriptor {
+                                dataDescriptorValue          = inj s,
+                                dataDescriptorWritable       = False,
+                                dataDescriptorEnumerable     = False,
+                                dataDescriptorConfigurable   = False }) ]
+  function <- Lens.use functionPrototypeObject
+  let n = Object i
+      oi = ObjectInternal {
+        objectInternalProperties        = Map.fromList properties,
+        objectInternalPrototype         = const $ return (JSExist function),
+        objectInternalClass             = const $ return "Error",
+        objectInternalExtensible        = const $ return True,
+        objectInternalGet               = getImpl,
+        objectInternalGetOwnProperty    = getOwnPropertyImpl,
+        objectInternalGetProperty       = getPropertyImpl,
+        objectInternalPut               = putImpl,
+        objectInternalCanPut            = canPutImpl,
+        objectInternalHasProperty       = hasPropertyImpl,
+        objectInternalDelete            = deleteImpl,
+        objectInternalDefaultValue      = defaultValueImpl,
+        objectInternalDefineOwnProperty = defineOwnPropertyImpl,
+        objectInternalPrimitiveValue    = Nothing,
+        objectInternalConstruct         = Nothing,
+        objectInternalCall              = Nothing,
+        objectInternalHasInstance       = Nothing,
+        objectInternalScope             = Nothing,
+        objectInternalFormalParameters  = Nothing,
+        objectInternalCode              = Nothing,
+        objectInternalTargetFunction    = Nothing,
+        objectInternalBoundThis         = Nothing,
+        objectInternalBoundArguments    = Nothing,
+        objectInternalMatch             = Nothing,
+        objectInternalParameterMap      = Nothing }
+  mInternalObject n ?= oi
+  return n
+
+evalErrorConstructorCallImpl :: (Functor m, Monad m) =>
+                                InternalCallType m
+evalErrorConstructorCallImpl e _ args = do
+  inj <$> evalErrorConstructorConstructImpl e args
+
+evalErrorConstructorConstructImpl :: (Functor m, Monad m) =>
+                                     InternalConstructType m
+evalErrorConstructorConstructImpl _ (List vs) = do
+  case vs of
+   (v:_) -> newEvalErrorObject (Just v)
+   _ -> newEvalErrorObject Nothing
+
+newRangeErrorObject :: Maybe Value -> JavaScriptM Object
+newRangeErrorObject mv = do
+  i <- createNextInternalId
+  properties <- case mv of
+                 Nothing -> return []
+                 Just (ValueUndefined _) -> return []
+                 Just v -> do
+                   s <- toString v
+                   return [ ("message", PropertyData $ DataDescriptor {
+                                dataDescriptorValue          = inj s,
+                                dataDescriptorWritable       = False,
+                                dataDescriptorEnumerable     = False,
+                                dataDescriptorConfigurable   = False }) ]
+  function <- Lens.use functionPrototypeObject
+  let n = Object i
+      oi = ObjectInternal {
+        objectInternalProperties        = Map.fromList properties,
+        objectInternalPrototype         = const $ return (JSExist function),
+        objectInternalClass             = const $ return "Error",
+        objectInternalExtensible        = const $ return True,
+        objectInternalGet               = getImpl,
+        objectInternalGetOwnProperty    = getOwnPropertyImpl,
+        objectInternalGetProperty       = getPropertyImpl,
+        objectInternalPut               = putImpl,
+        objectInternalCanPut            = canPutImpl,
+        objectInternalHasProperty       = hasPropertyImpl,
+        objectInternalDelete            = deleteImpl,
+        objectInternalDefaultValue      = defaultValueImpl,
+        objectInternalDefineOwnProperty = defineOwnPropertyImpl,
+        objectInternalPrimitiveValue    = Nothing,
+        objectInternalConstruct         = Nothing,
+        objectInternalCall              = Nothing,
+        objectInternalHasInstance       = Nothing,
+        objectInternalScope             = Nothing,
+        objectInternalFormalParameters  = Nothing,
+        objectInternalCode              = Nothing,
+        objectInternalTargetFunction    = Nothing,
+        objectInternalBoundThis         = Nothing,
+        objectInternalBoundArguments    = Nothing,
+        objectInternalMatch             = Nothing,
+        objectInternalParameterMap      = Nothing }
+  mInternalObject n ?= oi
+  return n
+
+rangeErrorConstructorCallImpl :: (Functor m, Monad m) =>
+                                 InternalCallType m
+rangeErrorConstructorCallImpl e _ args = do
+  inj <$> rangeErrorConstructorConstructImpl e args
+
+rangeErrorConstructorConstructImpl :: (Functor m, Monad m) =>
+                                      InternalConstructType m
+rangeErrorConstructorConstructImpl _ (List vs) = do
+  case vs of
+   (v:_) -> newRangeErrorObject (Just v)
+   _ -> newRangeErrorObject Nothing
+
+newReferenceErrorObject :: Maybe Value -> JavaScriptM Object
+newReferenceErrorObject mv = do
+  i <- createNextInternalId
+  properties <- case mv of
+                 Nothing -> return []
+                 Just (ValueUndefined _) -> return []
+                 Just v -> do
+                   s <- toString v
+                   return [ ("message", PropertyData $ DataDescriptor {
+                                dataDescriptorValue          = inj s,
+                                dataDescriptorWritable       = False,
+                                dataDescriptorEnumerable     = False,
+                                dataDescriptorConfigurable   = False }) ]
+  function <- Lens.use functionPrototypeObject
+  let n = Object i
+      oi = ObjectInternal {
+        objectInternalProperties        = Map.fromList properties,
+        objectInternalPrototype         = const $ return (JSExist function),
+        objectInternalClass             = const $ return "Error",
+        objectInternalExtensible        = const $ return True,
+        objectInternalGet               = getImpl,
+        objectInternalGetOwnProperty    = getOwnPropertyImpl,
+        objectInternalGetProperty       = getPropertyImpl,
+        objectInternalPut               = putImpl,
+        objectInternalCanPut            = canPutImpl,
+        objectInternalHasProperty       = hasPropertyImpl,
+        objectInternalDelete            = deleteImpl,
+        objectInternalDefaultValue      = defaultValueImpl,
+        objectInternalDefineOwnProperty = defineOwnPropertyImpl,
+        objectInternalPrimitiveValue    = Nothing,
+        objectInternalConstruct         = Nothing,
+        objectInternalCall              = Nothing,
+        objectInternalHasInstance       = Nothing,
+        objectInternalScope             = Nothing,
+        objectInternalFormalParameters  = Nothing,
+        objectInternalCode              = Nothing,
+        objectInternalTargetFunction    = Nothing,
+        objectInternalBoundThis         = Nothing,
+        objectInternalBoundArguments    = Nothing,
+        objectInternalMatch             = Nothing,
+        objectInternalParameterMap      = Nothing }
+  mInternalObject n ?= oi
+  return n
+
+referenceErrorConstructorCallImpl :: (Functor m, Monad m) =>
+                                     InternalCallType m
+referenceErrorConstructorCallImpl e _ args = do
+  inj <$> referenceErrorConstructorConstructImpl e args
+
+referenceErrorConstructorConstructImpl :: (Functor m, Monad m) =>
+                                          InternalConstructType m
+referenceErrorConstructorConstructImpl _ (List vs) = do
+  case vs of
+   (v:_) -> newReferenceErrorObject (Just v)
+   _ -> newReferenceErrorObject Nothing
+
+newSyntaxErrorObject :: Maybe Value -> JavaScriptM Object
+newSyntaxErrorObject mv = do
+  i <- createNextInternalId
+  properties <- case mv of
+                 Nothing -> return []
+                 Just (ValueUndefined _) -> return []
+                 Just v -> do
+                   s <- toString v
+                   return [ ("message", PropertyData $ DataDescriptor {
+                                dataDescriptorValue          = inj s,
+                                dataDescriptorWritable       = False,
+                                dataDescriptorEnumerable     = False,
+                                dataDescriptorConfigurable   = False }) ]
+  function <- Lens.use functionPrototypeObject
+  let n = Object i
+      oi = ObjectInternal {
+        objectInternalProperties        = Map.fromList properties,
+        objectInternalPrototype         = const $ return (JSExist function),
+        objectInternalClass             = const $ return "Error",
+        objectInternalExtensible        = const $ return True,
+        objectInternalGet               = getImpl,
+        objectInternalGetOwnProperty    = getOwnPropertyImpl,
+        objectInternalGetProperty       = getPropertyImpl,
+        objectInternalPut               = putImpl,
+        objectInternalCanPut            = canPutImpl,
+        objectInternalHasProperty       = hasPropertyImpl,
+        objectInternalDelete            = deleteImpl,
+        objectInternalDefaultValue      = defaultValueImpl,
+        objectInternalDefineOwnProperty = defineOwnPropertyImpl,
+        objectInternalPrimitiveValue    = Nothing,
+        objectInternalConstruct         = Nothing,
+        objectInternalCall              = Nothing,
+        objectInternalHasInstance       = Nothing,
+        objectInternalScope             = Nothing,
+        objectInternalFormalParameters  = Nothing,
+        objectInternalCode              = Nothing,
+        objectInternalTargetFunction    = Nothing,
+        objectInternalBoundThis         = Nothing,
+        objectInternalBoundArguments    = Nothing,
+        objectInternalMatch             = Nothing,
+        objectInternalParameterMap      = Nothing }
+  mInternalObject n ?= oi
+  return n
+
+syntaxErrorConstructorCallImpl :: (Functor m, Monad m) =>
+                                  InternalCallType m
+syntaxErrorConstructorCallImpl e _ args = do
+  inj <$> syntaxErrorConstructorConstructImpl e args
+
+syntaxErrorConstructorConstructImpl :: (Functor m, Monad m) =>
+                                       InternalConstructType m
+syntaxErrorConstructorConstructImpl _ (List vs) = do
+  case vs of
+   (v:_) -> newSyntaxErrorObject (Just v)
+   _ -> newSyntaxErrorObject Nothing
+
+newTypeErrorObject :: Maybe Value -> JavaScriptM Object
+newTypeErrorObject mv = do
+  i <- createNextInternalId
+  properties <- case mv of
+                 Nothing -> return []
+                 Just (ValueUndefined _) -> return []
+                 Just v -> do
+                   s <- toString v
+                   return [ ("message", PropertyData $ DataDescriptor {
+                                dataDescriptorValue          = inj s,
+                                dataDescriptorWritable       = False,
+                                dataDescriptorEnumerable     = False,
+                                dataDescriptorConfigurable   = False }) ]
+  function <- Lens.use functionPrototypeObject
+  let n = Object i
+      oi = ObjectInternal {
+        objectInternalProperties        = Map.fromList properties,
+        objectInternalPrototype         = const $ return (JSExist function),
+        objectInternalClass             = const $ return "Error",
+        objectInternalExtensible        = const $ return True,
+        objectInternalGet               = getImpl,
+        objectInternalGetOwnProperty    = getOwnPropertyImpl,
+        objectInternalGetProperty       = getPropertyImpl,
+        objectInternalPut               = putImpl,
+        objectInternalCanPut            = canPutImpl,
+        objectInternalHasProperty       = hasPropertyImpl,
+        objectInternalDelete            = deleteImpl,
+        objectInternalDefaultValue      = defaultValueImpl,
+        objectInternalDefineOwnProperty = defineOwnPropertyImpl,
+        objectInternalPrimitiveValue    = Nothing,
+        objectInternalConstruct         = Nothing,
+        objectInternalCall              = Nothing,
+        objectInternalHasInstance       = Nothing,
+        objectInternalScope             = Nothing,
+        objectInternalFormalParameters  = Nothing,
+        objectInternalCode              = Nothing,
+        objectInternalTargetFunction    = Nothing,
+        objectInternalBoundThis         = Nothing,
+        objectInternalBoundArguments    = Nothing,
+        objectInternalMatch             = Nothing,
+        objectInternalParameterMap      = Nothing }
+  mInternalObject n ?= oi
+  return n
+
+typeErrorConstructorCallImpl :: (Functor m, Monad m) =>
+                                InternalCallType m
+typeErrorConstructorCallImpl e _ args = do
+  inj <$> typeErrorConstructorConstructImpl e args
+
+typeErrorConstructorConstructImpl :: (Functor m, Monad m) =>
+                                     InternalConstructType m
+typeErrorConstructorConstructImpl _ (List vs) = do
+  case vs of
+   (v:_) -> newTypeErrorObject (Just v)
+   _ -> newTypeErrorObject Nothing
+
+newUriErrorObject :: Maybe Value -> JavaScriptM Object
+newUriErrorObject mv = do
+  i <- createNextInternalId
+  properties <- case mv of
+                 Nothing -> return []
+                 Just (ValueUndefined _) -> return []
+                 Just v -> do
+                   s <- toString v
+                   return [ ("message", PropertyData $ DataDescriptor {
+                                dataDescriptorValue          = inj s,
+                                dataDescriptorWritable       = False,
+                                dataDescriptorEnumerable     = False,
+                                dataDescriptorConfigurable   = False }) ]
+  function <- Lens.use functionPrototypeObject
+  let n = Object i
+      oi = ObjectInternal {
+        objectInternalProperties        = Map.fromList properties,
+        objectInternalPrototype         = const $ return (JSExist function),
+        objectInternalClass             = const $ return "Error",
+        objectInternalExtensible        = const $ return True,
+        objectInternalGet               = getImpl,
+        objectInternalGetOwnProperty    = getOwnPropertyImpl,
+        objectInternalGetProperty       = getPropertyImpl,
+        objectInternalPut               = putImpl,
+        objectInternalCanPut            = canPutImpl,
+        objectInternalHasProperty       = hasPropertyImpl,
+        objectInternalDelete            = deleteImpl,
+        objectInternalDefaultValue      = defaultValueImpl,
+        objectInternalDefineOwnProperty = defineOwnPropertyImpl,
+        objectInternalPrimitiveValue    = Nothing,
+        objectInternalConstruct         = Nothing,
+        objectInternalCall              = Nothing,
+        objectInternalHasInstance       = Nothing,
+        objectInternalScope             = Nothing,
+        objectInternalFormalParameters  = Nothing,
+        objectInternalCode              = Nothing,
+        objectInternalTargetFunction    = Nothing,
+        objectInternalBoundThis         = Nothing,
+        objectInternalBoundArguments    = Nothing,
+        objectInternalMatch             = Nothing,
+        objectInternalParameterMap      = Nothing }
+  mInternalObject n ?= oi
+  return n
+
+uriErrorConstructorCallImpl :: (Functor m, Monad m) =>
+                               InternalCallType m
+uriErrorConstructorCallImpl e _ args = do
+  inj <$> uriErrorConstructorConstructImpl e args
+
+uriErrorConstructorConstructImpl :: (Functor m, Monad m) =>
+                                    InternalConstructType m
+uriErrorConstructorConstructImpl _ (List vs) = do
+  case vs of
+   (v:_) -> newUriErrorObject (Just v)
+   _ -> newUriErrorObject Nothing
+
 newStringObject :: Maybe Value ->
                    JavaScriptM Object
 newStringObject mv = do
@@ -5451,7 +6414,7 @@ createArgumentsObject :: Object ->
                          JavaScriptM Object
 createArgumentsObject func (List names) (List args) env strict = do
   let len = length args
-  obj <- newObject Nothing
+  obj <- newObjectObject Nothing
   object <- Lens.use objectPrototypeObject
   internalObject obj %= \oi -> oi { objectInternalClass = const $ return "Arguments",
                                     objectInternalPrototype = const $ return (JSExist object) }
@@ -5477,8 +6440,8 @@ createNextInternalId = do
   nextInternalId .= succ next
   return next
 
-newObject :: Maybe Value -> JavaScriptM Object
-newObject mv =
+newObjectObject :: Maybe Value -> JavaScriptM Object
+newObjectObject mv =
   case mv of
    Just v ->
      case v of
@@ -5538,8 +6501,8 @@ objectConstructorConstructImpl :: (Functor m, Monad m) =>
                                   InternalConstructType m
 objectConstructorConstructImpl _ (List vs) = do
   case vs of
-   (v:_) -> newObject (Just v)
-   _ -> newObject Nothing
+   (v:_) -> newObjectObject (Just v)
+   _ -> newObjectObject Nothing
 
 
 defineOwnPropertyImpl :: (Functor m, Monad m) =>
@@ -5618,7 +6581,7 @@ defineOwnPropertyImpl o p desc throw = do
   where
     reject =
       if throw
-      then jsThrow ((inj typeError))
+      then newTypeErrorObject Nothing >>= jsThrow . inj
       else return False
     checkDescriptor current = do
       if isGenericDescriptor (JSJust desc)
@@ -5792,22 +6755,28 @@ toUint16 v = do
         int16bit = posInt `mod` 2 ^ (16 :: Int)
     return $ fromInteger int16bit
 
+primitiveToString :: (SubType v Primitive) =>
+                     v -> String
+primitiveToString p =
+  case (inj p :: Primitive) of
+   PrimitiveUndefined _ -> "undefined"
+   PrimitiveNull _ -> "null"
+   PrimitiveBool b ->  if b then "true" else "false"
+   PrimitiveNumber (Number n) -> show n
+   PrimitiveString s -> s
+
 toString :: (SubType v Value) =>
             v -> JavaScriptM String
 toString v =
   case (inj v :: Value) of
-   ValueUndefined _ -> return "undefined"
-   ValueNull _ -> return "null"
-   ValueBool b -> return $ if b then "true" else "false"
-   ValueNumber (Number n) -> return $ show n
-   ValueString s -> return s
+   ValuePrimitive p -> return $ primitiveToString p
    ValueObject _ -> toPrimitive v (Just HintString) >>= toString
 
 toObject :: Value -> JavaScriptM Object
 toObject v =
   case v of
-   ValueUndefined _ -> jsThrow (inj typeError)
-   ValueNull _ -> jsThrow (inj typeError)
+   ValueUndefined _ -> newTypeErrorObject Nothing >>= jsThrow . inj
+   ValueNull _ -> newTypeErrorObject Nothing >>= jsThrow . inj
    ValueBool b -> newBooleanObject (inj b)
    ValueNumber n -> newNumberObject (inj n)
    ValueString s -> newStringObject (inj s)
@@ -5817,8 +6786,8 @@ checkObjectCoercible :: Value -> JavaScriptM ()
 checkObjectCoercible v = void $ toObjectCoercible v
 
 toObjectCoercible :: Value -> JavaScriptM (Object + Number + String + Bool)
-toObjectCoercible (ValueUndefined _) = jsThrow (inj typeError)
-toObjectCoercible (ValueNull _) = jsThrow (inj typeError)
+toObjectCoercible (ValueUndefined _) = newTypeErrorObject Nothing >>= jsThrow . inj
+toObjectCoercible (ValueNull _) = newTypeErrorObject Nothing >>= jsThrow . inj
 toObjectCoercible (ValueObject o) = return $ inj o
 toObjectCoercible (ValueNumber n) = return $ inj n
 toObjectCoercible (ValueString s) = return $ inj s
@@ -6030,21 +6999,3 @@ operatorBitwiseOr left right = do
   lnum <- toInt32 lval
   rnum <- toInt32 rval
   return $ Number $ fromIntegral $ lnum .|. rnum
-
-evalError :: Object
-evalError = error "evalError"
-
-rangeError :: Object
-rangeError = error "rangeError"
-
-referenceError :: Object
-referenceError = error "referenceError"
-
-syntaxError :: Object
-syntaxError = error "syntaxError"
-
-typeError :: Object
-typeError = error "typeError"
-
-uriError :: Object
-uriError = error "uriError"
