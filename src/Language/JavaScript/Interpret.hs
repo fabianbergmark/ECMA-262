@@ -1924,6 +1924,12 @@ data JavaScriptState m
     , javaScriptStateBooleanPrototypeObject           :: Object
     , javaScriptStateDatePrototypeObject              :: Object
     , javaScriptStateErrorPrototypeObject             :: Object
+    , javaScriptStateEvalErrorPrototypeObject         :: Object
+    , javaScriptStateRangeErrorPrototypeObject        :: Object
+    , javaScriptStateReferenceErrorPrototypeObject    :: Object
+    , javaScriptStateSyntaxErrorPrototypeObject       :: Object
+    , javaScriptStateTypeErrorPrototypeObject         :: Object
+    , javaScriptStateURIErrorPrototypeObject          :: Object
     , javaScriptStateFunctionPrototypeObject          :: Object
     , javaScriptStateNumberPrototypeObject            :: Object
     , javaScriptStateObjectPrototypeObject            :: Object
@@ -1938,17 +1944,22 @@ initialState =
         contextVariableEnvironment = error "Unitialised variable environment",
         contextThisBinding         = error "Unitialised this binding",
         contextLabels              = [] }
+
       ctxs = ContextStack {
         contextStackCurrent = ctx,
         contextStackStack   = [] }
+
       environmentRecordHeap =
         Map.fromList
         [ (globalEnvironmentRecord, globalEnvironmentRecordInternal) ]
+
       declarativeEnvironmentRecordHeap =
         Map.empty
+
       lexicalEnvironmentHeap =
         Map.fromList
         [ (globalLexicalEnvironment, globalLexicalEnvironmentInternal) ]
+
       objectHeap =
         Map.fromList
         [ (globalObject, globalObjectInternal)
@@ -1956,6 +1967,13 @@ initialState =
         , (booleanPrototypeObject, booleanPrototypeObjectInternal)
         , (datePrototypeObject, datePrototypeObjectInternal)
         , (errorPrototypeObject, errorPrototypeObjectInternal)
+        , (errorPrototypeToString, errorPrototypeToStringInternal)
+        , (evalErrorPrototypeObject, evalErrorPrototypeObjectInternal)
+        , (rangeErrorPrototypeObject, rangeErrorPrototypeObjectInternal)
+        , (referenceErrorPrototypeObject, referenceErrorPrototypeObjectInternal)
+        , (syntaxErrorPrototypeObject, syntaxErrorPrototypeObjectInternal)
+        , (typeErrorPrototypeObject, typeErrorPrototypeObjectInternal)
+        , (uriErrorPrototypeObject, uriErrorPrototypeObjectInternal)
         , (functionPrototypeObject, functionPrototypeObjectInternal)
         , (numberPrototypeObject, numberPrototypeObjectInternal)
         , (objectPrototypeObject, objectPrototypeObjectInternal)
@@ -1978,13 +1996,16 @@ initialState =
         , (uriErrorConstructor, uriErrorConstructorInternal)
         , (mathObject, mathObjectInternal)
         , (jsonObject, jsonObjectInternal) ]
+
       globalLexicalEnvironmentInternal =
         LexicalEnvironmentInternal globalEnvironmentRecord Nothing
       globalLexicalEnvironment = LexicalEnvironment 0
+
       globalEnvironmentRecordInternal =
         EnvironmentRecordInternalObject
         (ObjectEnvironmentRecord globalObject True)
       globalEnvironmentRecord = EnvironmentRecord 1
+
       globalObject = Object 2
       globalObjectInternal :: (Functor m, Monad m) => ObjectInternal m
       globalObjectInternal = ObjectInternal {
@@ -2134,8 +2155,7 @@ initialState =
                  dataDescriptorValue          = inj jsonObject,
                  dataDescriptorWritable       = True,
                  dataDescriptorEnumerable     = False,
-                 dataDescriptorConfigurable   = True })
-           ],
+                 dataDescriptorConfigurable   = True }) ],
         objectInternalPrototype         = const $ return JSNull,
         objectInternalClass             = const $ return "Object",
         objectInternalExtensible        = const $ return True,
@@ -2160,6 +2180,7 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
+
       globalEval = error "globalEval" :: Object
       globalParseInt = error "globalParseInt" :: Object
       globalParseFloat = error "globalParseFloat" :: Object
@@ -2169,6 +2190,8 @@ initialState =
       globalDecodeURIComponent = error "globalDecodeURIComponent" :: Object
       globalEncodeURI = error "globalEncodeURI" :: Object
       globalEncodeURIComponent = error "globalEncodeURIComponent" :: Object
+
+      arrayPrototypeObject = Object 3
       arrayPrototypeObjectInternal = ObjectInternal {
         objectInternalProperties        =
            Map.fromList
@@ -2308,7 +2331,7 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      arrayPrototypeObject = Object 3
+
       arrayPrototypeToString = error "arrayPrototypeToString" :: Object
       arrayPrototypeToLocaleString = error "arrayPrototypeToLocaleString" :: Object
       arrayPrototypeConcat = error "arrayPrototypeConcat" :: Object
@@ -2330,6 +2353,8 @@ initialState =
       arrayPrototypeFilter = error "arrayPrototypeFilter" :: Object
       arrayPrototypeReduce = error "arrayPrototypeReduce" :: Object
       arrayPrototypeReduceRight = error "arrayPrototypeReduceRight" :: Object
+
+      booleanPrototypeObject = Object 4
       booleanPrototypeObjectInternal = ObjectInternal {
         objectInternalProperties        =
            Map.fromList
@@ -2372,9 +2397,12 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      booleanPrototypeObject = Object 4
+
       booleanPrototypeToString = error "booleanPrototypeToString" :: Object
+
       booleanPrototypeValueOf = error "booleanPrototypeValueOf" :: Object
+
+      datePrototypeObject = Object 5
       datePrototypeObjectInternal = ObjectInternal {
         objectInternalProperties        = Map.empty,
         objectInternalPrototype         = const $ return (JSExist objectPrototypeObject),
@@ -2401,7 +2429,7 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      datePrototypeObject = Object 5
+
       errorPrototypeObject = Object 6
       errorPrototypeObjectInternal = ObjectInternal {
         objectInternalProperties        =
@@ -2450,8 +2478,13 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      errorPrototypeToString = error "errorPrototypeToString" :: Object
-      evalErrorPrototypeObject = Object 7
+
+      errorPrototypeToString = Object 7
+      errorPrototypeToStringInternal :: (Functor m, Monad m) => ObjectInternal m
+      errorPrototypeToStringInternal =
+        propertyFunctionObject errorPrototypeToStringCallImpl 0
+
+      evalErrorPrototypeObject = Object 8
       evalErrorPrototypeObjectInternal :: (Functor m, Monad m) => ObjectInternal m
       evalErrorPrototypeObjectInternal = ObjectInternal {
         objectInternalProperties        =
@@ -2495,7 +2528,7 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      rangeErrorPrototypeObject = Object 8
+      rangeErrorPrototypeObject = Object 9
       rangeErrorPrototypeObjectInternal :: (Functor m, Monad m) => ObjectInternal m
       rangeErrorPrototypeObjectInternal = ObjectInternal {
         objectInternalProperties        =
@@ -2506,7 +2539,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
            , ("name", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj "EvalError",
+                 dataDescriptorValue = inj "RangeError",
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
@@ -2539,7 +2572,7 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      referenceErrorPrototypeObject = Object 9
+      referenceErrorPrototypeObject = Object 10
       referenceErrorPrototypeObjectInternal :: (Functor m, Monad m) => ObjectInternal m
       referenceErrorPrototypeObjectInternal = ObjectInternal {
         objectInternalProperties        =
@@ -2550,7 +2583,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
            , ("name", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj "EvalError",
+                 dataDescriptorValue = inj "ReferenceError",
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
@@ -2583,7 +2616,7 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      syntaxErrorPrototypeObject = Object 10
+      syntaxErrorPrototypeObject = Object 11
       syntaxErrorPrototypeObjectInternal :: (Functor m, Monad m) => ObjectInternal m
       syntaxErrorPrototypeObjectInternal = ObjectInternal {
         objectInternalProperties        =
@@ -2594,7 +2627,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
            , ("name", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj "EvalError",
+                 dataDescriptorValue = inj "SyntaxError",
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
@@ -2627,7 +2660,7 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      typeErrorPrototypeObject = Object 11
+      typeErrorPrototypeObject = Object 12
       typeErrorPrototypeObjectInternal :: (Functor m, Monad m) => ObjectInternal m
       typeErrorPrototypeObjectInternal = ObjectInternal {
         objectInternalProperties        =
@@ -2638,7 +2671,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
            , ("name", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj "EvalError",
+                 dataDescriptorValue = inj "TypeError",
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
@@ -2671,7 +2704,7 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      uriErrorPrototypeObject = Object 12
+      uriErrorPrototypeObject = Object 13
       uriErrorPrototypeObjectInternal :: (Functor m, Monad m) => ObjectInternal m
       uriErrorPrototypeObjectInternal = ObjectInternal {
         objectInternalProperties        =
@@ -2682,7 +2715,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
            , ("name", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj "EvalError",
+                 dataDescriptorValue = inj "URIError",
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
@@ -2715,6 +2748,8 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
+
+      functionPrototypeObject = Object 14
       functionPrototypeObjectInternal :: (Functor m, Monad m) => ObjectInternal m
       functionPrototypeObjectInternal = ObjectInternal {
         objectInternalProperties        =
@@ -2770,11 +2805,13 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      functionPrototypeObject = Object 7
+
       functionPrototypeToString = error "functionPrototypeToString" :: Object
       functionPrototypeApply = error "functionPrototypeApply" :: Object
       functionPrototypeCall = error "functionPrototypeCall" :: Object
       functionPrototypeBind = error "functionPrototypeBind" :: Object
+
+      numberPrototypeObject = Object 15
       numberPrototypeObjectInternal = ObjectInternal {
         objectInternalProperties        =
            Map.fromList
@@ -2837,13 +2874,15 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      numberPrototypeObject = Object 8
+
       numberPrototypeToString = error "numberPrototypeToString" :: Object
       numberPrototypeToLocaleString = error "numberPrototypeToLocaleString" :: Object
       numberPrototypeValueOf = error "numberPrototypeValueOf" :: Object
       numberPrototypeToFixed = error "numberPrototypeToFixed" :: Object
       numberPrototypeToExponential = error "numberPrototypeToExponential" :: Object
       numberPrototypeToPrecision = error "numberPrototypeToPrecision" :: Object
+
+      objectPrototypeObject = Object 16
       objectPrototypeObjectInternal = ObjectInternal {
         objectInternalProperties        =
            Map.fromList
@@ -2913,13 +2952,15 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      objectPrototypeObject = Object 9
+
       objectPrototypeToString = error "objectPrototypeToString" :: Object
       objectPrototypeToLocaleString = error "objectPrototypeToLocaleString" :: Object
       objectPrototypeValueOf = error "objectPrototypeValueOf" :: Object
       objectPrototypeHasOwnProperty = error "objectPrototypeHasOwnProperty" :: Object
       objectPrototypeIsPrototypeOf = error "objectPrototypeIsPrototypeOf" :: Object
       objectPrototypeIsEnumerable = error "objectPrototypeIsEnumerable" :: Object
+
+      regExpPrototypeObject = Object 17
       regExpPrototypeObjectInternal = ObjectInternal {
         objectInternalProperties        = Map.empty,
         objectInternalPrototype         = const $ return (JSExist objectPrototypeObject),
@@ -2946,7 +2987,8 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Just regExpMatchImpl,
         objectInternalParameterMap      = Nothing }
-      regExpPrototypeObject = Object 10
+
+      stringPrototypeObject = Object 18
       stringPrototypeObjectInternal = ObjectInternal {
         objectInternalProperties        =
            Map.fromList
@@ -3049,8 +3091,7 @@ initialState =
                  dataDescriptorValue = inj $ stringPrototypeTrim,
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
-                 dataDescriptorConfigurable = False }) ]
-        ,
+                 dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         = const $ return (JSExist objectPrototypeObject),
         objectInternalClass             = const $ return "String",
         objectInternalExtensible        = const $ return True,
@@ -3075,7 +3116,7 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      stringPrototypeObject = Object 11
+
       stringPrototypeToString = error "stringPrototypeToString" :: Object
       stringPrototypeValueOf = error "stringPrototypeValueOf" :: Object
       stringPrototypeCharAt = error "stringPrototypeCharAt" :: Object
@@ -3095,9 +3136,11 @@ initialState =
       stringPrototypeToUpperCase = error "stringPrototypeToUpperCase" :: Object
       stringPrototypeToLocaleUpperCase = error "stringPrototypeToLocaleUpperCase" :: Object
       stringPrototypeTrim = error "stringPrototypeTrim" :: Object
+
+      throwTypeErrorObject = Object 19
       throwTypeErrorObjectInternal = error "throwTypeErrorObject"
-      throwTypeErrorObject = Object 12
-      objectConstructor = Object 13
+
+      objectConstructor = Object 20
       objectConstructorInternal = ObjectInternal {
         objectInternalProperties        =
            Map.fromList
@@ -3211,7 +3254,7 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      functionConstructor = Object 14
+
       objectConstructorGetPrototypeOf = error "objectConstructorGetPrototypeOf" :: Object
       objectConstructorGetOwnPropertyDescriptor = error "objectConstructorGetOwnPropertyDescriptor" :: Object
       objectConstructorGetOwnPropertyNames = error "objectConstructorGetOwnPropertyNames" :: Object
@@ -3225,6 +3268,8 @@ initialState =
       objectConstructorIsFrozen = error "objectConstructorIsFrozen" :: Object
       objectConstructorIsExtensible = error "objectConstructorIsExtensible" :: Object
       objectConstructorKeys = error "objectConstructorKeys" :: Object
+
+      functionConstructor = Object 21
       functionConstructorInternal :: (Functor m, Monad m) => ObjectInternal m
       functionConstructorInternal = ObjectInternal {
         objectInternalProperties =
@@ -3263,7 +3308,8 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      arrayConstructor = Object 15
+
+      arrayConstructor = Object 22
       arrayConstructorInternal :: (Functor m, Monad m) => ObjectInternal m
       arrayConstructorInternal = ObjectInternal {
         objectInternalProperties        =
@@ -3307,8 +3353,10 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
+
       arrayConstructorIsArray = error "arrayConstructorIsArray" :: Object
-      stringConstructor = Object 15
+
+      stringConstructor = Object 23
       stringConstructorInternal :: (Functor m, Monad m) => ObjectInternal m
       stringConstructorInternal = ObjectInternal {
         objectInternalProperties        =
@@ -3352,8 +3400,10 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
+
       stringConstructorFromCharCode = error "stringConstructorFromCharCode" :: Object
-      booleanConstructor = Object 16
+
+      booleanConstructor = Object 24
       booleanConstructorInternal :: (Functor m, Monad m) => ObjectInternal m
       booleanConstructorInternal = ObjectInternal {
         objectInternalProperties        =
@@ -3392,7 +3442,8 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      numberConstructor = Object 17
+
+      numberConstructor = Object 25
       numberConstructorInternal :: (Functor m, Monad m) => ObjectInternal m
       numberConstructorInternal = ObjectInternal {
         objectInternalProperties        =
@@ -3456,11 +3507,14 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      dateConstructor = Object 18
+
+      dateConstructor = Object 26
       dateConstructorInternal = error "dateConstructorInternal"
-      regExpConstructor = Object 19
+
+      regExpConstructor = Object 27
       regExpConstructorInternal = error "regExpConstructorInternal"
-      errorConstructor = Object 20
+
+      errorConstructor = Object 28
       errorConstructorInternal = ObjectInternal {
         objectInternalProperties        =
            Map.fromList
@@ -3499,7 +3553,8 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      evalErrorConstructor = Object 21
+
+      evalErrorConstructor = Object 29
       evalErrorConstructorInternal = ObjectInternal {
         objectInternalProperties        =
            Map.fromList
@@ -3538,7 +3593,8 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      rangeErrorConstructor = Object 22
+
+      rangeErrorConstructor = Object 30
       rangeErrorConstructorInternal = ObjectInternal {
         objectInternalProperties        =
            Map.fromList
@@ -3554,7 +3610,7 @@ initialState =
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         =
           const $ return (JSExist functionPrototypeObject),
-        objectInternalClass             = const $ return "EvalError",
+        objectInternalClass             = const $ return "RangeError",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -3577,7 +3633,8 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      referenceErrorConstructor = Object 23
+
+      referenceErrorConstructor = Object 31
       referenceErrorConstructorInternal = ObjectInternal {
         objectInternalProperties        =
            Map.fromList
@@ -3593,7 +3650,7 @@ initialState =
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         =
           const $ return (JSExist functionPrototypeObject),
-        objectInternalClass             = const $ return "EvalError",
+        objectInternalClass             = const $ return "ReferenceError",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -3616,7 +3673,8 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      syntaxErrorConstructor = Object 24
+
+      syntaxErrorConstructor = Object 32
       syntaxErrorConstructorInternal = ObjectInternal {
         objectInternalProperties        =
            Map.fromList
@@ -3632,7 +3690,7 @@ initialState =
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         =
           const $ return (JSExist functionPrototypeObject),
-        objectInternalClass             = const $ return "EvalError",
+        objectInternalClass             = const $ return "SyntaxError",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -3655,7 +3713,8 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      typeErrorConstructor = Object 25
+
+      typeErrorConstructor = Object 33
       typeErrorConstructorInternal = ObjectInternal {
         objectInternalProperties        =
            Map.fromList
@@ -3671,7 +3730,7 @@ initialState =
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         =
           const $ return (JSExist functionPrototypeObject),
-        objectInternalClass             = const $ return "EvalError",
+        objectInternalClass             = const $ return "TypeError",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -3694,7 +3753,8 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      uriErrorConstructor = Object 26
+
+      uriErrorConstructor = Object 34
       uriErrorConstructorInternal = ObjectInternal {
         objectInternalProperties        =
            Map.fromList
@@ -3710,7 +3770,7 @@ initialState =
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         =
           const $ return (JSExist functionPrototypeObject),
-        objectInternalClass             = const $ return "EvalError",
+        objectInternalClass             = const $ return "URIError",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -3733,7 +3793,8 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
-      mathObject = Object 27
+
+      mathObject = Object 35
       mathObjectInternal :: (Functor m, Monad m) => ObjectInternal m
       mathObjectInternal = ObjectInternal {
         objectInternalProperties        =
@@ -3892,6 +3953,7 @@ initialState =
         objectInternalBoundArguments    = Nothing,
         objectInternalMatch             = Nothing,
         objectInternalParameterMap      = Nothing }
+
       mathAbs = error "mathAbs" :: Object
       mathAcos = error "mathAcos" :: Object
       mathAsin = error "mathAsin" :: Object
@@ -3910,9 +3972,47 @@ initialState =
       mathSin = error "mathSin" :: Object
       mathSqrt = error "mathSqrt" :: Object
       mathTan = error "mathTan" :: Object
-      jsonObject = Object 28
+
+      jsonObject = Object 36
       jsonObjectInternal = error "jsonObjectInternal"
-      nextInternalId = 29
+
+      nextInternalId = 37
+
+      propertyFunctionObject :: (Functor m, Monad m) =>
+                                InternalCallType m -> Number -> ObjectInternal m
+      propertyFunctionObject c l = ObjectInternal {
+        objectInternalProperties        =
+           Map.fromList
+           [ ("length", PropertyData $ DataDescriptor {
+                 dataDescriptorValue = inj l,
+                 dataDescriptorWritable = False,
+                 dataDescriptorEnumerable = False,
+                 dataDescriptorConfigurable = False }) ],
+        objectInternalPrototype         =
+          const $ return (JSExist functionPrototypeObject),
+        objectInternalClass             = const $ return "Function",
+        objectInternalExtensible        = const $ return True,
+        objectInternalGet               = functionGetImpl,
+        objectInternalGetOwnProperty    = getOwnPropertyImpl,
+        objectInternalGetProperty       = getPropertyImpl,
+        objectInternalPut               = putImpl,
+        objectInternalCanPut            = canPutImpl,
+        objectInternalHasProperty       = hasPropertyImpl,
+        objectInternalDelete            = deleteImpl,
+        objectInternalDefaultValue      = defaultValueImpl,
+        objectInternalDefineOwnProperty = defineOwnPropertyImpl,
+        objectInternalPrimitiveValue    = Nothing,
+        objectInternalConstruct         = Nothing,
+        objectInternalCall              = Just c,
+        objectInternalHasInstance       = Nothing,
+        objectInternalScope             = Nothing,
+        objectInternalFormalParameters  = Nothing,
+        objectInternalCode              = Nothing,
+        objectInternalTargetFunction    = Nothing,
+        objectInternalBoundThis         = Nothing,
+        objectInternalBoundArguments    = Nothing,
+        objectInternalMatch             = Nothing,
+        objectInternalParameterMap      = Nothing }
   in
    JavaScriptState {
      javaScriptStateContextStack                     =
@@ -3939,6 +4039,18 @@ initialState =
        datePrototypeObject,
      javaScriptStateErrorPrototypeObject             =
        errorPrototypeObject,
+     javaScriptStateEvalErrorPrototypeObject         =
+       evalErrorPrototypeObject,
+     javaScriptStateRangeErrorPrototypeObject        =
+       rangeErrorPrototypeObject,
+     javaScriptStateReferenceErrorPrototypeObject    =
+       referenceErrorPrototypeObject,
+     javaScriptStateSyntaxErrorPrototypeObject       =
+       syntaxErrorPrototypeObject,
+     javaScriptStateTypeErrorPrototypeObject         =
+       typeErrorPrototypeObject,
+     javaScriptStateURIErrorPrototypeObject          =
+       uriErrorPrototypeObject,
      javaScriptStateFunctionPrototypeObject          =
        functionPrototypeObject,
      javaScriptStateNumberPrototypeObject            =
@@ -4061,6 +4173,42 @@ errorPrototypeObject =
   Lens.lens
   javaScriptStateErrorPrototypeObject
   (\jss oid -> jss { javaScriptStateErrorPrototypeObject = oid })
+
+evalErrorPrototypeObject :: Lens' (JavaScriptState m) Object
+evalErrorPrototypeObject =
+  Lens.lens
+  javaScriptStateEvalErrorPrototypeObject
+  (\jss oid -> jss { javaScriptStateEvalErrorPrototypeObject = oid })
+
+rangeErrorPrototypeObject :: Lens' (JavaScriptState m) Object
+rangeErrorPrototypeObject =
+  Lens.lens
+  javaScriptStateRangeErrorPrototypeObject
+  (\jss oid -> jss { javaScriptStateRangeErrorPrototypeObject = oid })
+
+referenceErrorPrototypeObject :: Lens' (JavaScriptState m) Object
+referenceErrorPrototypeObject =
+  Lens.lens
+  javaScriptStateReferenceErrorPrototypeObject
+  (\jss oid -> jss { javaScriptStateReferenceErrorPrototypeObject = oid })
+
+syntaxErrorPrototypeObject :: Lens' (JavaScriptState m) Object
+syntaxErrorPrototypeObject =
+  Lens.lens
+  javaScriptStateSyntaxErrorPrototypeObject
+  (\jss oid -> jss { javaScriptStateSyntaxErrorPrototypeObject = oid })
+
+typeErrorPrototypeObject :: Lens' (JavaScriptState m) Object
+typeErrorPrototypeObject =
+  Lens.lens
+  javaScriptStateTypeErrorPrototypeObject
+  (\jss oid -> jss { javaScriptStateTypeErrorPrototypeObject = oid })
+
+uriErrorPrototypeObject :: Lens' (JavaScriptState m) Object
+uriErrorPrototypeObject =
+  Lens.lens
+  javaScriptStateURIErrorPrototypeObject
+  (\jss oid -> jss { javaScriptStateURIErrorPrototypeObject = oid })
 
 functionPrototypeObject :: Lens' (JavaScriptState m) Object
 functionPrototypeObject =
@@ -5987,6 +6135,26 @@ errorConstructorConstructImpl _ (List vs) = do
    (v:_) -> newErrorObject (Just v)
    _ -> newErrorObject Nothing
 
+errorPrototypeToStringCallImpl :: (Functor m, Monad m) => InternalCallType m
+errorPrototypeToStringCallImpl _ v _ = do
+  case v of
+   ValueObject o -> do
+     name <- get o "name"
+     name' <- case name of
+               ValueUndefined _ -> return "Error"
+               _ -> toString name
+     msg <- get o "message"
+     msg' <- case msg of
+              ValueUndefined _ -> return ""
+              _ -> toString msg
+     if null name'
+       then return (inj msg')
+       else
+       if null msg'
+       then return (inj name')
+       else return (inj $ name' ++ ": " ++ msg')
+   _ -> newTypeErrorObject Nothing >>= jsThrow . inj
+
 newEvalErrorObject :: Maybe Value -> JavaScriptM Object
 newEvalErrorObject mv = do
   i <- createNextInternalId
@@ -6000,11 +6168,11 @@ newEvalErrorObject mv = do
                                 dataDescriptorWritable       = False,
                                 dataDescriptorEnumerable     = False,
                                 dataDescriptorConfigurable   = False }) ]
-  function <- Lens.use functionPrototypeObject
+  p <- Lens.use evalErrorPrototypeObject
   let n = Object i
       oi = ObjectInternal {
         objectInternalProperties        = Map.fromList properties,
-        objectInternalPrototype         = const $ return (JSExist function),
+        objectInternalPrototype         = const $ return (JSExist p),
         objectInternalClass             = const $ return "Error",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
@@ -6056,11 +6224,11 @@ newRangeErrorObject mv = do
                                 dataDescriptorWritable       = False,
                                 dataDescriptorEnumerable     = False,
                                 dataDescriptorConfigurable   = False }) ]
-  function <- Lens.use functionPrototypeObject
+  p <- Lens.use rangeErrorPrototypeObject
   let n = Object i
       oi = ObjectInternal {
         objectInternalProperties        = Map.fromList properties,
-        objectInternalPrototype         = const $ return (JSExist function),
+        objectInternalPrototype         = const $ return (JSExist p),
         objectInternalClass             = const $ return "Error",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
@@ -6112,11 +6280,11 @@ newReferenceErrorObject mv = do
                                 dataDescriptorWritable       = False,
                                 dataDescriptorEnumerable     = False,
                                 dataDescriptorConfigurable   = False }) ]
-  function <- Lens.use functionPrototypeObject
+  p <- Lens.use referenceErrorPrototypeObject
   let n = Object i
       oi = ObjectInternal {
         objectInternalProperties        = Map.fromList properties,
-        objectInternalPrototype         = const $ return (JSExist function),
+        objectInternalPrototype         = const $ return (JSExist p),
         objectInternalClass             = const $ return "Error",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
@@ -6168,11 +6336,11 @@ newSyntaxErrorObject mv = do
                                 dataDescriptorWritable       = False,
                                 dataDescriptorEnumerable     = False,
                                 dataDescriptorConfigurable   = False }) ]
-  function <- Lens.use functionPrototypeObject
+  p <- Lens.use syntaxErrorPrototypeObject
   let n = Object i
       oi = ObjectInternal {
         objectInternalProperties        = Map.fromList properties,
-        objectInternalPrototype         = const $ return (JSExist function),
+        objectInternalPrototype         = const $ return (JSExist p),
         objectInternalClass             = const $ return "Error",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
@@ -6224,11 +6392,11 @@ newTypeErrorObject mv = do
                                 dataDescriptorWritable       = False,
                                 dataDescriptorEnumerable     = False,
                                 dataDescriptorConfigurable   = False }) ]
-  function <- Lens.use functionPrototypeObject
+  p <- Lens.use typeErrorPrototypeObject
   let n = Object i
       oi = ObjectInternal {
         objectInternalProperties        = Map.fromList properties,
-        objectInternalPrototype         = const $ return (JSExist function),
+        objectInternalPrototype         = const $ return (JSExist p),
         objectInternalClass             = const $ return "Error",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
@@ -6280,11 +6448,11 @@ newUriErrorObject mv = do
                                 dataDescriptorWritable       = False,
                                 dataDescriptorEnumerable     = False,
                                 dataDescriptorConfigurable   = False }) ]
-  function <- Lens.use functionPrototypeObject
+  p <- Lens.use uriErrorPrototypeObject
   let n = Object i
       oi = ObjectInternal {
         objectInternalProperties        = Map.fromList properties,
-        objectInternalPrototype         = const $ return (JSExist function),
+        objectInternalPrototype         = const $ return (JSExist p),
         objectInternalClass             = const $ return "Error",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
