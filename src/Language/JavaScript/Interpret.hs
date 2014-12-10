@@ -1983,6 +1983,7 @@ initialState =
         , (objectConstructor, objectConstructorInternal)
         , (functionConstructor, functionConstructorInternal)
         , (arrayConstructor, arrayConstructorInternal)
+        , (stringConstructor, stringConstructorInternal)
         , (booleanConstructor, booleanConstructorInternal)
         , (numberConstructor, numberConstructorInternal)
         , (dateConstructor, dateConstructorInternal)
@@ -2820,32 +2821,32 @@ initialState =
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
-             , ("toString", PropertyData $ DataDescriptor {
+           , ("toString", PropertyData $ DataDescriptor {
                  dataDescriptorValue = inj numberPrototypeToString,
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
-             , ("toLocaleString", PropertyData $ DataDescriptor {
+           , ("toLocaleString", PropertyData $ DataDescriptor {
                  dataDescriptorValue = inj numberPrototypeToLocaleString,
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
-             , ("valueOf", PropertyData $ DataDescriptor {
+           , ("valueOf", PropertyData $ DataDescriptor {
                  dataDescriptorValue = inj numberPrototypeValueOf,
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
-             , ("toFixed", PropertyData $ DataDescriptor {
+           , ("toFixed", PropertyData $ DataDescriptor {
                  dataDescriptorValue = inj numberPrototypeToFixed,
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
-             , ("toExponential", PropertyData $ DataDescriptor {
+           , ("toExponential", PropertyData $ DataDescriptor {
                  dataDescriptorValue = inj numberPrototypeToExponential,
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
-             , ("toPrecision", PropertyData $ DataDescriptor {
+           , ("toPrecision", PropertyData $ DataDescriptor {
                  dataDescriptorValue = inj numberPrototypeToPrecision,
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
