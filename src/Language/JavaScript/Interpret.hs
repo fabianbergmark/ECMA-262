@@ -949,14 +949,14 @@ instance (Functor m, Monad m) =>
        case getBase ref of
         BaseUndefined _ -> do
           if isStrictReference ref
-            then newSyntaxErrorObject Nothing >>= jsThrow . inj
+            then newSyntaxErrorObject Nothing >>= jsThrow
             else return $ inj True
         BaseProperty propertyBase -> do
           obj <- toObject $ inj propertyBase
           inj <$> delete obj (getReferencedName ref) (isStrictReference ref)
         BaseEnvironmentRecord environmentRecordBase -> do
            if isStrictReference ref
-             then newSyntaxErrorObject Nothing >>= jsThrow . inj
+             then newSyntaxErrorObject Nothing >>= jsThrow
              else do
              inj <$> deleteBinding environmentRecordBase (getReferencedName ref)
 
@@ -988,7 +988,7 @@ instance (Functor m, Monad m) =>
             let name = getReferencedName ref
             if name == "eval" ||
                name == "arguments"
-              then newSyntaxErrorObject Nothing >>= jsThrow . inj
+              then newSyntaxErrorObject Nothing >>= jsThrow
               else return ()
           Nothing -> return ()
          else return ()
@@ -1010,7 +1010,7 @@ instance (Functor m, Monad m) =>
             let name = getReferencedName ref
             if name == "eval" ||
                name == "arguments"
-              then newSyntaxErrorObject Nothing >>= jsThrow . inj
+              then newSyntaxErrorObject Nothing >>= jsThrow
               else return ()
           Nothing -> return ()
          else return ()
@@ -1078,7 +1078,7 @@ instance (Functor m, Monad m) =>
     case constructor of
      ValueObject o -> do
        inj <$> construct o argList
-     _ -> newTypeErrorObject Nothing >>= jsThrow . inj
+     _ -> newTypeErrorObject Nothing >>= jsThrow
 
 instance (Functor m, Monad m) =>
          Interpret NewExpr (JavaScriptT m) CallValue where
@@ -1089,7 +1089,7 @@ instance (Functor m, Monad m) =>
     case constructor of
      ValueObject o -> do
        inj <$> construct o (List [])
-     _ -> newTypeErrorObject Nothing >>= jsThrow . inj
+     _ -> newTypeErrorObject Nothing >>= jsThrow
 
 
 instance (Functor m, Monad m) =>
@@ -1109,7 +1109,7 @@ instance (Functor m, Monad m) =>
                 implicitThisValue er
           _ -> return $ inj Undefined
        call o thisValue argList
-     _ -> newTypeErrorObject Nothing >>= jsThrow . inj
+     _ -> newTypeErrorObject Nothing >>= jsThrow
 
   interpret (CallExprCall ce args) = do
     rv <- interpret ce
@@ -1126,7 +1126,7 @@ instance (Functor m, Monad m) =>
                 implicitThisValue er
           _ -> return $ inj Undefined
        call o thisValue argList
-     _ -> newTypeErrorObject Nothing >>= jsThrow . inj
+     _ -> newTypeErrorObject Nothing >>= jsThrow
 
   interpret (CallExprArray ce expr) = do
     baseReference <- interpret ce
@@ -1183,7 +1183,7 @@ instance (Functor m, Monad m) =>
           BaseEnvironmentRecord _ -> do
             let name = getReferencedName ref
             when (name == "eval" || name == "arguments") $
-              newSyntaxErrorObject Nothing >>= jsThrow . inj
+              newSyntaxErrorObject Nothing >>= jsThrow
           _ -> return ()
      _ -> return ()
     oldValue <- getValue lhs >>= toNumber
@@ -1200,7 +1200,7 @@ instance (Functor m, Monad m) =>
           BaseEnvironmentRecord _ -> do
             let name = getReferencedName ref
             when (name == "eval" || name == "arguments") $
-              newSyntaxErrorObject Nothing >>= jsThrow . inj
+              newSyntaxErrorObject Nothing >>= jsThrow
           _ -> return ()
      _ -> return ()
     oldValue <- getValue lhs >>= toNumber
@@ -1312,7 +1312,7 @@ instance (Functor m, Monad m) =>
     case rval of
      ValueObject o -> do
        inj <$> hasInstance o lval
-     _ -> newTypeErrorObject Nothing >>= jsThrow . inj
+     _ -> newTypeErrorObject Nothing >>= jsThrow
 
   interpret (RelExprIn re se) = do
     lref <- interpret re
@@ -1320,7 +1320,7 @@ instance (Functor m, Monad m) =>
     rref <- interpret se
     rval <- getValue rref
     case prj rval of
-     Nothing -> newTypeErrorObject Nothing >>= jsThrow . inj
+     Nothing -> newTypeErrorObject Nothing >>= jsThrow
      Just obj -> do
        s <- toString lval
        inj <$> hasProperty obj s
@@ -1377,7 +1377,7 @@ instance (Functor m, Monad m) =>
     case rval of
      ValueObject obj ->
        inj <$> hasInstance obj lval
-     _ -> newTypeErrorObject Nothing >>= jsThrow . inj
+     _ -> newTypeErrorObject Nothing >>= jsThrow
 
 instance (Functor m, Monad m) =>
          Interpret EqExpr (JavaScriptT m) CallValue where
@@ -1597,7 +1597,7 @@ instance (Functor m, Monad m) =>
              typeOf (getBase ref) == TypeEnvironmentRecord &&
              (getReferencedName ref == "eval" ||
               getReferencedName ref == "arguments")) $ do
-         newSyntaxErrorObject Nothing >>= jsThrow . inj
+         newSyntaxErrorObject Nothing >>= jsThrow
      _ -> return ()
     putValue lref rval
     return $ inj rval
@@ -1625,7 +1625,7 @@ instance (Functor m, Monad m) =>
              typeOf (getBase ref) == TypeEnvironmentRecord &&
              (getReferencedName ref == "eval" ||
               getReferencedName ref == "arguments")) $ do
-         newSyntaxErrorObject Nothing >>= jsThrow . inj
+         newSyntaxErrorObject Nothing >>= jsThrow
      _ -> return ()
     putValue lref r
     return $ inj r
@@ -1644,7 +1644,7 @@ instance (Functor m, Monad m) =>
              typeOf (getBase ref) == TypeEnvironmentRecord &&
              (getReferencedName ref == "eval" ||
               getReferencedName ref == "arguments")) $ do
-         newSyntaxErrorObject Nothing >>= jsThrow . inj
+         newSyntaxErrorObject Nothing >>= jsThrow
      Nothing -> return ()
     putValue lref rval
     return $ inj rval
@@ -1672,7 +1672,7 @@ instance (Functor m, Monad m) =>
              typeOf (getBase ref) == TypeEnvironmentRecord &&
              (getReferencedName ref == "eval" ||
               getReferencedName ref == "arguments")) $ do
-         newSyntaxErrorObject Nothing >>= jsThrow . inj
+         newSyntaxErrorObject Nothing >>= jsThrow
      Nothing -> return ()
     putValue lref r
     return $ inj r
@@ -2158,7 +2158,7 @@ initialState =
                  dataDescriptorEnumerable     = False,
                  dataDescriptorConfigurable   = True }) ],
         objectInternalPrototype         = const $ return JSNull,
-        objectInternalClass             = const $ return "Object",
+        objectInternalClass             = "Object",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -2309,7 +2309,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         = const $ return (JSExist objectPrototypeObject),
-        objectInternalClass             = const $ return "Array",
+        objectInternalClass             = "Array",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -2375,7 +2375,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         = const $ return (JSExist objectPrototypeObject),
-        objectInternalClass             = const $ return "Boolean",
+        objectInternalClass             = "Boolean",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -2407,7 +2407,7 @@ initialState =
       datePrototypeObjectInternal = ObjectInternal {
         objectInternalProperties        = Map.empty,
         objectInternalPrototype         = const $ return (JSExist objectPrototypeObject),
-        objectInternalClass             = const $ return "Date",
+        objectInternalClass             = "Date",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -2456,7 +2456,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         = const $ return (JSExist objectPrototypeObject),
-        objectInternalClass             = const $ return "Error",
+        objectInternalClass             = "Error",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -2506,7 +2506,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         = const $ return (JSExist errorPrototypeObject),
-        objectInternalClass             = const $ return "Error",
+        objectInternalClass             = "Error",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -2550,7 +2550,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         = const $ return (JSExist errorPrototypeObject),
-        objectInternalClass             = const $ return "Error",
+        objectInternalClass             = "Error",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -2594,7 +2594,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         = const $ return (JSExist errorPrototypeObject),
-        objectInternalClass             = const $ return "Error",
+        objectInternalClass             = "Error",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -2638,7 +2638,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         = const $ return (JSExist errorPrototypeObject),
-        objectInternalClass             = const $ return "Error",
+        objectInternalClass             = "Error",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -2682,7 +2682,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         = const $ return (JSExist errorPrototypeObject),
-        objectInternalClass             = const $ return "Error",
+        objectInternalClass             = "Error",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -2726,7 +2726,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         = const $ return (JSExist errorPrototypeObject),
-        objectInternalClass             = const $ return "Error",
+        objectInternalClass             = "Error",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -2783,7 +2783,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })],
         objectInternalPrototype         = const $ return (JSExist objectPrototypeObject),
-        objectInternalClass             = const $ return "Function",
+        objectInternalClass             = "Function",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -2852,7 +2852,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         = const $ return (JSExist objectPrototypeObject),
-        objectInternalClass             = const $ return "Number",
+        objectInternalClass             = "Number",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -2930,7 +2930,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         = const $ return JSNull,
-        objectInternalClass             = const $ return "Object",
+        objectInternalClass             = "Object",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -2965,7 +2965,7 @@ initialState =
       regExpPrototypeObjectInternal = ObjectInternal {
         objectInternalProperties        = Map.empty,
         objectInternalPrototype         = const $ return (JSExist objectPrototypeObject),
-        objectInternalClass             = const $ return "RegExp",
+        objectInternalClass             = "RegExp",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = stringGetOwnPropertyImpl,
@@ -3094,7 +3094,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         = const $ return (JSExist objectPrototypeObject),
-        objectInternalClass             = const $ return "String",
+        objectInternalClass             = "String",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = stringGetOwnPropertyImpl,
@@ -3232,7 +3232,7 @@ initialState =
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         = const $
                                           return (JSExist functionPrototypeObject),
-        objectInternalClass             = const $ return "Object",
+        objectInternalClass             = "Object",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -3286,7 +3286,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })],
         objectInternalPrototype         = const $ return (JSExist functionPrototypeObject),
-        objectInternalClass             = const $ return "Function",
+        objectInternalClass             = "Function",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -3331,7 +3331,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         = const $ return (JSExist functionPrototypeObject),
-        objectInternalClass             = const $ return "Function",
+        objectInternalClass             = "Function",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -3378,7 +3378,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         = const $ return (JSExist functionPrototypeObject),
-        objectInternalClass             = const $ return "String",
+        objectInternalClass             = "String",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -3420,7 +3420,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         = const $ return (JSExist functionPrototypeObject),
-        objectInternalClass             = const $ return "Boolean",
+        objectInternalClass             = "Boolean",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -3485,7 +3485,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         = const $ return (JSExist functionPrototypeObject),
-        objectInternalClass             = const $ return "Number",
+        objectInternalClass             = "Number",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -3531,7 +3531,7 @@ initialState =
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         =
           const $ return (JSExist functionPrototypeObject),
-        objectInternalClass             = const $ return "Error",
+        objectInternalClass             = "Error",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -3571,7 +3571,7 @@ initialState =
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         =
           const $ return (JSExist functionPrototypeObject),
-        objectInternalClass             = const $ return "EvalError",
+        objectInternalClass             = "EvalError",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -3611,7 +3611,7 @@ initialState =
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         =
           const $ return (JSExist functionPrototypeObject),
-        objectInternalClass             = const $ return "RangeError",
+        objectInternalClass             = "RangeError",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -3651,7 +3651,7 @@ initialState =
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         =
           const $ return (JSExist functionPrototypeObject),
-        objectInternalClass             = const $ return "ReferenceError",
+        objectInternalClass             = "ReferenceError",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -3691,7 +3691,7 @@ initialState =
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         =
           const $ return (JSExist functionPrototypeObject),
-        objectInternalClass             = const $ return "SyntaxError",
+        objectInternalClass             = "SyntaxError",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -3731,7 +3731,7 @@ initialState =
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         =
           const $ return (JSExist functionPrototypeObject),
-        objectInternalClass             = const $ return "TypeError",
+        objectInternalClass             = "TypeError",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -3771,7 +3771,7 @@ initialState =
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         =
           const $ return (JSExist functionPrototypeObject),
-        objectInternalClass             = const $ return "URIError",
+        objectInternalClass             = "URIError",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -3931,7 +3931,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         = const $ return (JSExist objectPrototypeObject),
-        objectInternalClass             = const $ return "Math",
+        objectInternalClass             = "Math",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -3991,7 +3991,7 @@ initialState =
                  dataDescriptorConfigurable = False }) ],
         objectInternalPrototype         =
           const $ return (JSExist functionPrototypeObject),
-        objectInternalClass             = const $ return "Function",
+        objectInternalClass             = "Function",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = functionGetImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -4256,8 +4256,8 @@ runJavaScriptT :: (Functor m, Monad m) =>
                   m (Either Value a)
 runJavaScriptT s a = flip State.evalStateT s $ Except.runExceptT a
 
-jsThrow :: Value -> JavaScriptM a
-jsThrow v = Except.throwE v
+jsThrow :: (SubType v Value) => v -> JavaScriptM a
+jsThrow v = Except.throwE (inj v)
 
 type JSNullable a = a + Null
 
@@ -4494,45 +4494,47 @@ getValue sub = do
    CallValueReference ref -> do
      let base = getBase ref
      case toUnresolvableReference ref of
-       Left _ -> newReferenceErrorObject Nothing >>= jsThrow . inj
-       Right resolvableBase -> do
-         case resolvableBase of
-          Right propertyBase -> do
-            case propertyBase of
-             Left objectBase -> do
-               get objectBase (getReferencedName ref)
-             Right primitiveBase -> do
-               let p = getReferencedName ref
-               o <- toObject (inj primitiveBase)
-               mDesc <- getProperty o p
-               case mDesc of
-                JSNothing -> return $ inj Undefined
-                JSJust (PropertyDescriptor {..}) -> do
-                  case toDataDescriptor mDesc of
-                   JSJust (DataDescriptor {..}) -> do
-                     return dataDescriptorValue
-                   JSNothing ->
-                    case propertyDescriptorGet of
-                     Nothing -> return $ inj Undefined
-                     Just getter -> do
-                       callNative getter (inj primitiveBase) (List [])
-          Left environmentRecordBase -> do
-            getBindingValue
-              environmentRecordBase
-              (getReferencedName ref)
-              (isStrictReference ref)
+      Left _ -> newReferenceErrorObject
+                (Just . inj $ getReferencedName ref) >>= jsThrow
+      Right resolvableBase -> do
+        case resolvableBase of
+         Right propertyBase -> do
+           case propertyBase of
+            Left objectBase -> do
+              get objectBase (getReferencedName ref)
+            Right primitiveBase -> do
+              let p = getReferencedName ref
+              o <- toObject (inj primitiveBase)
+              mDesc <- getProperty o p
+              case mDesc of
+               JSNothing -> return $ inj Undefined
+               JSJust (PropertyDescriptor {..}) -> do
+                 case toDataDescriptor mDesc of
+                  JSJust (DataDescriptor {..}) -> do
+                    return dataDescriptorValue
+                  JSNothing ->
+                   case propertyDescriptorGet of
+                    Nothing -> return $ inj Undefined
+                    Just getter -> do
+                      callNative getter (inj primitiveBase) (List [])
+         Left environmentRecordBase -> do
+           getBindingValue
+             environmentRecordBase
+             (getReferencedName ref)
+             (isStrictReference ref)
 
 putValue :: (SubType v1 CallValue, SubType v2 Value) =>
             v1 -> v2 -> JavaScriptM ()
 putValue rv w = do
   case (inj rv :: CallValue) of
-   Right _ -> newReferenceErrorObject Nothing >>= jsThrow . inj
-   Left ref -> do
+   CallValueValue _ -> newReferenceErrorObject Nothing >>= jsThrow
+   CallValueReference ref -> do
      let base = getBase ref
      case toUnresolvableReference ref of
       Left _ -> do
         if isStrictReference ref
-          then newReferenceErrorObject Nothing >>= jsThrow . inj
+          then newReferenceErrorObject
+               (Just . inj $ getReferencedName ref) >>= jsThrow
           else do
           global <- Lens.use globalObject
           put global (getReferencedName ref) (inj w) False
@@ -4550,14 +4552,14 @@ putValue rv w = do
               if not c
                 then do
                 if throw
-                  then newTypeErrorObject Nothing >>= jsThrow . inj
+                  then newTypeErrorObject Nothing >>= jsThrow
                   else return ()
                 else do
                 ownDesc <- getOwnProperty o p
                 if isDataDescriptor ownDesc
                   then
                   if throw
-                  then newTypeErrorObject Nothing >>= jsThrow . inj
+                  then newTypeErrorObject Nothing >>= jsThrow
                   else return ()
                   else do
                   desc <- getProperty o p
@@ -4568,7 +4570,7 @@ putValue rv w = do
                      return ()
                    JSNothing -> do
                      if throw
-                       then newTypeErrorObject Nothing >>= jsThrow . inj
+                       then newTypeErrorObject Nothing >>= jsThrow
                        else return ()
          Left environmentRecordBase -> do
            setMutableBinding
@@ -5025,7 +5027,7 @@ setMutableBindingDeclarative envRec n v s = do
        internalDeclarativeEnvironmentRecordBinding n ?= binding
    Just (DeclarativeBindingImmutable {}) ->
      if s
-     then newTypeErrorObject Nothing >>= jsThrow . inj
+     then newTypeErrorObject Nothing >>= jsThrow
      else return ()
 
 setMutableBindingObject :: ObjectEnvironmentRecord ->
@@ -5053,7 +5055,7 @@ getBindingValueDeclarative envRec n s = do
    Just (DeclarativeBindingImmutable v False) ->
      if not s
      then return (inj Undefined)
-     else newReferenceErrorObject Nothing >>= jsThrow . inj
+     else newReferenceErrorObject (Just . inj $ s) >>= jsThrow
    Just (DeclarativeBindingImmutable v _) -> return v
    Just (DeclarativeBindingMutable v _) -> return v
 
@@ -5066,7 +5068,7 @@ getBindingValueObject envRec n s = do
     then do
     if not s
       then return (inj Undefined)
-      else newReferenceErrorObject Nothing >>= jsThrow . inj
+      else newReferenceErrorObject (Just . inj $ s) >>= jsThrow
     else get bindings n
 
 deleteBinding :: EnvironmentRecord -> String -> JavaScriptM Bool
@@ -5143,8 +5145,9 @@ data Object
   = Object InternalId
   deriving (Eq, Ord, Show)
 
+type InternalPropertiesType          = Map String Property
 type InternalPrototypeType m         = Object -> JavaScriptT m (JSNullable Object)
-type InternalClassType m             = Object -> JavaScriptT m String
+type InternalClassType               = String
 type InternalExtensibleType m        = Object -> JavaScriptT m Bool
 type InternalGetType m               = Object -> String -> JavaScriptT m Value
 type InternalGetOwnPropertyType m    = Object -> String -> JavaScriptT m (JSMaybe PropertyDescriptor)
@@ -5171,9 +5174,9 @@ type InternalParameterMapType m      = Object -> JavaScriptT m Object
 
 data ObjectInternal m =
   ObjectInternal
-  { objectInternalProperties        :: Map String Property
+  { objectInternalProperties        :: InternalPropertiesType
   , objectInternalPrototype         :: InternalPrototypeType m
-  , objectInternalClass             :: InternalClassType m
+  , objectInternalClass             :: InternalClassType
   , objectInternalExtensible        :: InternalExtensibleType m
   , objectInternalGet               :: InternalGetType m
   , objectInternalGetOwnProperty    :: InternalGetOwnPropertyType m
@@ -5197,7 +5200,7 @@ data ObjectInternal m =
   , objectInternalMatch             :: Maybe (InternalMatchType m)
   , objectInternalParameterMap      :: Maybe (InternalParameterMapType m) }
 
-internalProperties :: Lens' (ObjectInternal m) (Map String Property)
+internalProperties :: Lens' (ObjectInternal m) InternalPropertiesType
 internalProperties =
   Lens.lens
   objectInternalProperties
@@ -5206,7 +5209,7 @@ internalProperties =
 internalProperty :: String -> Lens' (ObjectInternal m) (Maybe Property)
 internalProperty p = internalProperties . Lens.at p
 
-properties :: Object -> Lens' (JavaScriptState m) (Map String Property)
+properties :: Object -> Lens' (JavaScriptState m) InternalPropertiesType
 properties o = internalObject o . internalProperties
 
 property :: Object -> String -> Lens' (JavaScriptState m) (Maybe Property)
@@ -5221,14 +5224,14 @@ internalPrototype =
 prototype :: (Functor m, Monad m) => InternalPrototypeType m
 prototype o = callInternalProperty o objectInternalPrototype
 
-internalClass :: Lens' (ObjectInternal m) (InternalClassType m)
+internalClass :: Lens' (ObjectInternal m) InternalClassType
 internalClass =
   Lens.lens
   objectInternalClass
   (\oi c -> oi { objectInternalClass = c })
 
-class' :: (Functor m, Monad m) => InternalClassType m
-class' o = callInternalProperty o objectInternalClass
+class' :: Object -> Lens' (JavaScriptState m) InternalClassType
+class' o = internalObject o . internalClass
 
 internalExtensible :: Lens' (ObjectInternal m) (InternalExtensibleType m)
 internalExtensible =
@@ -5445,7 +5448,7 @@ callInternalOptionalProperty o p = do
   oi <- Lens.use $ internalObject o
   case p oi of
    Just op -> op o
-   Nothing -> newTypeErrorObject Nothing >>= jsThrow . inj
+   Nothing -> newTypeErrorObject Nothing >>= jsThrow
 
 callInternalOptionalProperty1 :: (Functor m, Monad m) =>
                                  Object ->
@@ -5457,7 +5460,7 @@ callInternalOptionalProperty1 o p a = do
   oi <- Lens.use $ internalObject o
   case p oi of
    Just op -> op o a
-   Nothing -> newTypeErrorObject Nothing >>= jsThrow . inj
+   Nothing -> newTypeErrorObject Nothing >>= jsThrow
 
 callInternalOptionalProperty2 :: (Functor m, Monad m) =>
                                  Object ->
@@ -5469,7 +5472,7 @@ callInternalOptionalProperty2 o p a b = do
   oi <- Lens.use $ internalObject o
   case p oi of
    Just op -> op o a b
-   Nothing -> newTypeErrorObject Nothing >>= jsThrow . inj
+   Nothing -> newTypeErrorObject Nothing >>= jsThrow
 
 callInternalOptionalProperty3 :: (Functor m, Monad m) =>
                                  Object ->
@@ -5481,7 +5484,7 @@ callInternalOptionalProperty3 o p a b c = do
   oi <- Lens.use $ internalObject o
   case p oi of
    Just op -> op o a b c
-   Nothing -> newTypeErrorObject Nothing >>= jsThrow . inj
+   Nothing -> newTypeErrorObject Nothing >>= jsThrow
 
 getOwnPropertyImpl :: Object -> String -> JavaScriptM (JSMaybe PropertyDescriptor)
 getOwnPropertyImpl o p = do
@@ -5566,7 +5569,7 @@ putImpl o p v throw = do
   if not c
     then do
     if throw
-      then newTypeErrorObject Nothing >>= jsThrow . inj
+      then newTypeErrorObject Nothing >>= jsThrow
       else return ()
     else do
     ownDesc <- getOwnProperty o p
@@ -5611,7 +5614,7 @@ deleteImpl o p throw = do
        return True
        else do
        if throw
-         then newTypeErrorObject Nothing >>= jsThrow . inj
+         then newTypeErrorObject Nothing >>= jsThrow
          else return False
 
 data Hint
@@ -5639,8 +5642,8 @@ defaultValueImpl o (Just HintString) = do
          val <- call c (inj o) (List [])
          case val of
           CallValuePrimitive p -> return p
-          _ -> newTypeErrorObject Nothing >>= jsThrow . inj
-       Nothing -> newTypeErrorObject Nothing >>= jsThrow . inj
+          _ -> newTypeErrorObject Nothing >>= jsThrow
+       Nothing -> newTypeErrorObject Nothing >>= jsThrow
 
 defaultValueImpl o (Just HintNumber) = do
   valueOf <- get o "valueOf"
@@ -5661,8 +5664,8 @@ defaultValueImpl o (Just HintNumber) = do
          str <- call c (inj o) (List [])
          case str of
           CallValuePrimitive p -> return p
-          _ -> newTypeErrorObject Nothing >>= jsThrow . inj
-       Nothing -> newTypeErrorObject Nothing >>= jsThrow . inj
+          _ -> newTypeErrorObject Nothing >>= jsThrow
+       Nothing -> newTypeErrorObject Nothing >>= jsThrow
 
 defaultValueImpl o Nothing = defaultValueImpl o (Just HintNumber)
 
@@ -5686,7 +5689,7 @@ newFunctionObject mfpl fb scope strict = do
       oi = ObjectInternal {
         objectInternalProperties        = Map.empty,
         objectInternalPrototype         = const $ return (JSExist function),
-        objectInternalClass             = const $ return "Function",
+        objectInternalClass             = "Function",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = functionGetImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -5800,7 +5803,7 @@ functionConstructImpl f l = do
       oi = ObjectInternal {
         objectInternalProperties        = Map.empty,
         objectInternalPrototype         = const $ return (JSExist p),
-        objectInternalClass             = const $ return "Object",
+        objectInternalClass             = "Object",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -5855,7 +5858,7 @@ newArrayObject as = do
   let oi = ObjectInternal {
     objectInternalProperties        = Map.fromList properties,
     objectInternalPrototype         = const $ return (JSExist p),
-    objectInternalClass             = const $ return "Array",
+    objectInternalClass             = "Array",
     objectInternalExtensible        = const $ return True,
     objectInternalGet               = getImpl,
     objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -5901,7 +5904,7 @@ arrayDefineOwnPropertyImpl a p desc throw = do
        newLen <- toUint32 v
        curLen <- toNumber v
        if fromIntegral newLen /= curLen
-         then newRangeErrorObject Nothing >>= jsThrow . inj
+         then newRangeErrorObject Nothing >>= jsThrow
          else do
          let newLenDesc = desc {
                propertyDescriptorValue = Just (inj $ Number $ fromIntegral newLen) }
@@ -5969,16 +5972,17 @@ arrayDefineOwnPropertyImpl a p desc throw = do
           deleteLoop newLen oldLen' newLenDesc newWritable
         else return True
 
-    isArrayIndex s = do
-      ui <- toUint32 p
-      c <- toString (Number $ fromIntegral ui)
-      return $ c == p && ui /= 2 ^ (32 :: Int) - 1
-
     reject :: JavaScriptM Bool
     reject =
       if throw
-      then newTypeErrorObject Nothing >>= jsThrow . inj
+      then newTypeErrorObject Nothing >>= jsThrow
       else return False
+
+isArrayIndex :: String -> JavaScriptM Bool
+isArrayIndex p = do
+  ui <- toUint32 p
+  c <- toString (Number $ fromIntegral ui)
+  return $ c == p && ui /= 2 ^ (32 :: Int) - 1
 
 newBooleanObject :: Value ->
                     JavaScriptM Object
@@ -5989,7 +5993,7 @@ newBooleanObject v = do
       oi = ObjectInternal {
         objectInternalProperties        = Map.empty,
         objectInternalPrototype         = const $ return (JSExist boolean),
-        objectInternalClass             = const $ return "Boolean",
+        objectInternalClass             = "Boolean",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -6039,7 +6043,7 @@ newNumberObject mv = do
       oi = ObjectInternal {
         objectInternalProperties        = Map.empty,
         objectInternalPrototype         = const $ return (JSExist number),
-        objectInternalClass             = const $ return "Number",
+        objectInternalClass             = "Number",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -6098,7 +6102,7 @@ newErrorObject mv = do
       oi = ObjectInternal {
         objectInternalProperties        = Map.fromList properties,
         objectInternalPrototype         = const $ return (JSExist error),
-        objectInternalClass             = const $ return "Error",
+        objectInternalClass             = "Error",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -6154,7 +6158,7 @@ errorPrototypeToStringCallImpl _ v _ = do
        if null msg'
        then return (inj name')
        else return (inj $ name' ++ ": " ++ msg')
-   _ -> newTypeErrorObject Nothing >>= jsThrow . inj
+   _ -> newTypeErrorObject Nothing >>= jsThrow
 
 newEvalErrorObject :: Maybe Value -> JavaScriptM Object
 newEvalErrorObject mv = do
@@ -6174,7 +6178,7 @@ newEvalErrorObject mv = do
       oi = ObjectInternal {
         objectInternalProperties        = Map.fromList properties,
         objectInternalPrototype         = const $ return (JSExist p),
-        objectInternalClass             = const $ return "Error",
+        objectInternalClass             = "Error",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -6230,7 +6234,7 @@ newRangeErrorObject mv = do
       oi = ObjectInternal {
         objectInternalProperties        = Map.fromList properties,
         objectInternalPrototype         = const $ return (JSExist p),
-        objectInternalClass             = const $ return "Error",
+        objectInternalClass             = "Error",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -6286,7 +6290,7 @@ newReferenceErrorObject mv = do
       oi = ObjectInternal {
         objectInternalProperties        = Map.fromList properties,
         objectInternalPrototype         = const $ return (JSExist p),
-        objectInternalClass             = const $ return "Error",
+        objectInternalClass             = "Error",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -6342,7 +6346,7 @@ newSyntaxErrorObject mv = do
       oi = ObjectInternal {
         objectInternalProperties        = Map.fromList properties,
         objectInternalPrototype         = const $ return (JSExist p),
-        objectInternalClass             = const $ return "Error",
+        objectInternalClass             = "Error",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -6398,7 +6402,7 @@ newTypeErrorObject mv = do
       oi = ObjectInternal {
         objectInternalProperties        = Map.fromList properties,
         objectInternalPrototype         = const $ return (JSExist p),
-        objectInternalClass             = const $ return "Error",
+        objectInternalClass             = "Error",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -6454,7 +6458,7 @@ newUriErrorObject mv = do
       oi = ObjectInternal {
         objectInternalProperties        = Map.fromList properties,
         objectInternalPrototype         = const $ return (JSExist p),
-        objectInternalClass             = const $ return "Error",
+        objectInternalClass             = "Error",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -6502,7 +6506,7 @@ newStringObject mv = do
       oi = ObjectInternal {
         objectInternalProperties        = Map.empty,
         objectInternalPrototype         = const $ return (JSExist string),
-        objectInternalClass             = const $ return "String",
+        objectInternalClass             = "String",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = getImpl,
         objectInternalGetOwnProperty    = stringGetOwnPropertyImpl,
@@ -6585,7 +6589,7 @@ createArgumentsObject func (List names) (List args) env strict = do
   let len = length args
   obj <- newObjectObject Nothing
   object <- Lens.use objectPrototypeObject
-  internalObject obj %= \oi -> oi { objectInternalClass = const $ return "Arguments",
+  internalObject obj %= \oi -> oi { objectInternalClass = "Arguments",
                                     objectInternalPrototype = const $ return (JSExist object) }
   defineOwnProperty
     obj
@@ -6631,7 +6635,7 @@ newObjectObject mv =
       let oi = ObjectInternal {
         objectInternalProperties        = Map.empty,
         objectInternalPrototype         = const $ return (JSExist p),
-        objectInternalClass             = const $ return "Object",
+        objectInternalClass             = "Object",
         objectInternalExtensible        = const $ return True,
         objectInternalGet               = functionGetImpl,
         objectInternalGetOwnProperty    = getOwnPropertyImpl,
@@ -6643,7 +6647,7 @@ newObjectObject mv =
         objectInternalDefaultValue      = defaultValueImpl,
         objectInternalDefineOwnProperty = defineOwnPropertyImpl,
         objectInternalPrimitiveValue    = Nothing,
-        objectInternalConstruct         = Just functionConstructImpl,
+        objectInternalConstruct         = Nothing,
         objectInternalCall              = Nothing,
         objectInternalHasInstance       = Nothing,
         objectInternalScope             = Nothing,
@@ -6750,7 +6754,7 @@ defineOwnPropertyImpl o p desc throw = do
   where
     reject =
       if throw
-      then newTypeErrorObject Nothing >>= jsThrow . inj
+      then newTypeErrorObject Nothing >>= jsThrow
       else return False
     checkDescriptor current = do
       if isGenericDescriptor (JSJust desc)
@@ -6944,8 +6948,8 @@ toString v =
 toObject :: Value -> JavaScriptM Object
 toObject v =
   case v of
-   ValueUndefined _ -> newTypeErrorObject Nothing >>= jsThrow . inj
-   ValueNull _ -> newTypeErrorObject Nothing >>= jsThrow . inj
+   ValueUndefined _ -> newTypeErrorObject Nothing >>= jsThrow
+   ValueNull _ -> newTypeErrorObject Nothing >>= jsThrow
    ValueBool b -> newBooleanObject (inj b)
    ValueNumber n -> newNumberObject (inj n)
    ValueString s -> newStringObject (inj s)
@@ -6955,8 +6959,8 @@ checkObjectCoercible :: Value -> JavaScriptM ()
 checkObjectCoercible v = void $ toObjectCoercible v
 
 toObjectCoercible :: Value -> JavaScriptM (Object + Number + String + Bool)
-toObjectCoercible (ValueUndefined _) = newTypeErrorObject Nothing >>= jsThrow . inj
-toObjectCoercible (ValueNull _) = newTypeErrorObject Nothing >>= jsThrow . inj
+toObjectCoercible (ValueUndefined _) = newTypeErrorObject Nothing >>= jsThrow
+toObjectCoercible (ValueNull _) = newTypeErrorObject Nothing >>= jsThrow
 toObjectCoercible (ValueObject o) = return $ inj o
 toObjectCoercible (ValueNumber n) = return $ inj n
 toObjectCoercible (ValueString s) = return $ inj s
