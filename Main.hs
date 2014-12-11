@@ -1,12 +1,7 @@
 module Main
        ( main ) where
 
-import Control.Lens
 import Control.Monad (void)
-import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.State.Lazy (evalStateT)
-
-import qualified Data.Map as Map (empty)
 
 import System.Environment (getArgs)
 
