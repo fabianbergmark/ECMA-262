@@ -1,26 +1,33 @@
 name:              ecma262
 version:           0.0.0
-cabal-version:     >= 1.8
+synopsis:          A ECMA-262 interpreter library
+description:       A library for iterpreting ECMA-262 code.
+homepage:          https://github.com/fabianbergmark/ECMA-262
+category:          Language
+author:            Fabian Bergmark
+maintainer:        fabian.bergmark@gmail.com
+license:           BSD2
+license-file:      LICENSE
+cabal-version:     >= 1.10
 build-type:        Simple
 
-Flag dev
-    Description:   Compile without optimizations.
-    Default:       False
+extra-source-files: LICENSE
 
-Flag prof
-    Description:   Compile with profiling.
-    Default:       False
+source-repository head
+  type:     git
+  location: https://github.com/fabianbergmark/ECMA-262.git
 
 library
+    default-language: Haskell2010
+
     hs-source-dirs: src/
+
     exposed-modules: Language.JavaScript
                      Language.JavaScript.AST
                      Language.JavaScript.Interpret
-                     --Language.JavaScript.JSON
                      Language.JavaScript.Lexer
                      Language.JavaScript.Parser
                      Language.JavaScript.String
-                     --Language.JavaScript.URI
                      Language.JavaScript.Util
                      Language.JavaScript.SubType
                      Language.JavaScript.Host
@@ -28,35 +35,24 @@ library
 
     other-modules: Language.JavaScript.Prim
 
-    if flag(dev)
-        ghc-options: -Wall -Werror -O0 -fno-warn-orphans -fno-warn-unused-binds -fno-warn-unused-matches -threaded -rtsopts
-    else
-        if flag(prof)
-           ghc-options: -Wall -auto-all -caf-all -fno-warn-orphans -fno-warn-unused-binds -fno-warn-unused-matches -rtsopts
-        else
-           ghc-options: -Wall -O0 -fno-warn-orphans -fno-warn-unused-binds -fno-warn-unused-matches -threaded -rtsopts
+    ghc-options: -fno-warn-orphans -fno-warn-unused-binds -fno-warn-unused-matches
 
-    extensions:
-
-    build-depends: base                          >= 4          && < 5
-                 , containers
-                 , data-default
-                 , lens
-                 , parsec
-                 , safe
-                 , transformers                  >= 0.4
+    build-depends: base         == 4.*
+                 , containers   == 0.4.* || == 0.5.*
+                 , data-default == 0.5.*
+                 , lens         == 4.6.*
+                 , parsec       == 3.1.*
+                 , safe         == 0.3.*
+                 , transformers == 0.4.*
 
 executable ecma262
+    default-language: Haskell2010
+
     main-is: Main.hs
 
-    if flag(dev)
-        ghc-options: -Wall -Werror -O0 -fno-warn-orphans -fno-warn-unused-binds -fno-warn-unused-matches -threaded -rtsopts
-    else
-        if flag(prof)
-           ghc-options: -Wall -prof -auto-all -fno-warn-orphans -fno-warn-unused-binds -fno-warn-unused-matches -rtsopts
-        else
-           ghc-options: -Wall -O0 -fno-warn-orphans -fno-warn-unused-binds -fno-warn-unused-matches -threaded -rtsopts
+    ghc-options: -fno-warn-orphans -fno-warn-unused-binds -fno-warn-unused-matches
 
     other-modules: Main
-    build-depends: base                          >= 4          && < 5
-                 , ecma262
+
+    build-depends: base == 4.*
+                 , ecma262 == 0.0.0
