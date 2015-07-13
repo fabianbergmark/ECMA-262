@@ -38,12 +38,12 @@ library
     ghc-options: -fno-warn-orphans -fno-warn-unused-binds -fno-warn-unused-matches
 
     build-depends: base         == 4.*
-                 , containers   == 0.4.* || == 0.5.*
-                 , data-default == 0.5.*
-                 , lens         == 4.6.*
-                 , parsec       == 3.1.*
-                 , safe         == 0.3.*
-                 , transformers == 0.4.*
+                 , containers   == 0.*
+                 , data-default == 0.*
+                 , lens         == 4.*
+                 , parsec       == 3.*
+                 , safe         == 0.*
+                 , transformers == 0.*
 
 executable ecma262
     default-language: Haskell2010

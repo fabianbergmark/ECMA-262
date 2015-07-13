@@ -4,7 +4,6 @@
              FunctionalDependencies,
              GeneralizedNewtypeDeriving,
              MultiParamTypeClasses,
-             OverlappingInstances,
              PatternSynonyms,
              RankNTypes,
              RecordWildCards,
@@ -65,19 +64,19 @@ class Interpret1 f m p t | f -> p, f -> t where
 instance (Functor m, Monad m) => Interpret Literal m Value where
   interpret (LiteralNull n) = do
     n' <- interpret n
-    return $ inj n'
+    return . r.inj $ n'
   interpret (LiteralBool b) =  do
     b' <- interpret b
-    return $ inj b'
+    return . r.r.r.r.r.inj $ b'
   interpret (LiteralNum n) =  do
     n' <- interpret n
-    return $ inj n'
+    return . r.r.r.inj $ n'
   interpret (LiteralString s) =  do
     s' <- interpret s
-    return $ inj s'
-  interpret (LiteralRegExp r) = do
-    r' <- interpret r
-    return $ inj r'
+    return . r.r.r.r.inj $ s'
+  interpret (LiteralRegExp re) = do
+    re' <- interpret re
+    return . r.r.inj $ re'
 
 instance (Functor m, Monad m) => Interpret NullLit m Null where
   interpret NullLit = return Null
@@ -98,7 +97,7 @@ instance (Functor m, Monad m) =>
          Interpret PrimExpr (JavaScriptT m) CallValue where
   interpret PrimExprThis = do
     v <- Lens.use $ contextStack . currentContext . thisBinding
-    return $ inj v
+    return $ r.inj $ v
 
   interpret (PrimExprIdent (Ident (IdentName s))) = do
     env <- Lens.use $ contextStack . currentContext . lexicalEnvironment
@@ -107,13 +106,13 @@ instance (Functor m, Monad m) =>
 
   interpret (PrimExprLiteral l) = do
     v <- interpret l
-    return $ inj v
+    return $ r.inj $ v
   interpret (PrimExprArray a) = do
     o <- interpret a
-    return $ inj o
+    return $ r.inj $ o
   interpret (PrimExprObject o) = do
     v <- interpret o
-    return $ inj v
+    return $ r.inj $ v
   interpret (PrimExprParens e) = do
     v <- interpret e
     return $ inj v
@@ -125,7 +124,7 @@ instance (Functor m, Monad m) =>
     pad <- case me of
             Just e -> interpret e
             _ -> return $ Number 0
-    put a "length" (inj pad) False
+    put a "length" (r.r.r.inj $ pad) False
     return a
 
   interpret (ArrayLit e) = interpret e
@@ -135,8 +134,8 @@ instance (Functor m, Monad m) =>
             Just el -> interpret el
             _ -> return $ Number 0
     len <- get array "length" >>= toNumber
-    newLen <- toUint32 (pad + len)
-    put array "length" (inj $ Number $ fromIntegral newLen) False
+    newLen <- toUint32 . r.r.r.inj $ pad + len
+    put array "length" (r.r.r.inj . Number . fromIntegral $ newLen) False
     return array
 
 instance (Functor m, Monad m) =>
@@ -206,7 +205,7 @@ instance (Functor m, Monad m) =>
   interpret (PropNameStr (StringLit s)) = return s
   interpret (PropNameNum (NumLit n)) = do
     let nbr = Number n
-    toString nbr
+    toString . r.r.r.inj $ nbr
 
 instance (Functor m, Monad m) =>
          Interpret Elision m Number where
@@ -225,7 +224,7 @@ instance (Functor m, Monad m) =>
        _ -> return $ Number 0
     initResult <- interpret ae
     initValue <- getValue initResult
-    s <- toString firstIndex
+    s <- toString . r.r.r.inj $ firstIndex
     defineOwnProperty
       array
       s
@@ -245,9 +244,9 @@ instance (Functor m, Monad m) =>
     initResult <- interpret ae
     initValue <- getValue initResult
     len <- get array "length"
-    newLen <- pad `operatorPlus` len >>=
+    newLen <- (r.r.r.r.inj $ pad) `operatorPlus` (r.inj $ len) >>=
               toUint32 >>=
-              toString . Number . fromIntegral
+              toString . r.r.r.inj . Number . fromIntegral
     let desc = def {
           propertyDescriptorValue        = Just initValue,
           propertyDescriptorWritable     = Just True,
@@ -328,7 +327,7 @@ instance (Functor m, Monad m) =>
     lhs <- interpret ident
     rhs <- interpret init
     value <- getValue rhs
-    putValue lhs value
+    putValue (inj lhs) value
     return s
 
 instance (Functor m, Monad m) =>
@@ -339,7 +338,7 @@ instance (Functor m, Monad m) =>
     lhs <- interpret ident
     rhs <- interpret init
     value <- getValue rhs
-    putValue lhs value
+    putValue (inj lhs) value
     return s
 
 instance (Functor m, Monad m) =>
@@ -533,7 +532,7 @@ instance (Functor m, Monad m) =>
          if enum
            then do
            lhsRef <- interpret le
-           putValue lhsRef p
+           putValue (inj lhsRef) (r.r.r.r.inj $ p)
            stmt@(Completion sty sv sta) <- interpret s
            let v' = sv <|> v
            ils <- inCurrentLabelSet sta
@@ -574,7 +573,7 @@ instance (Functor m, Monad m) =>
          if enum
            then do
            varRef <- interpret (Ident (IdentName varName))
-           putValue varRef p
+           putValue (inj varRef) (r.r.r.r.inj $ p)
            stmt@(Completion sty sv sta) <- interpret s
            let v' = sv <|> v
            ils <- inCurrentLabelSet sta
@@ -612,7 +611,7 @@ instance (Functor m, Monad m) =>
 instance (Functor m, Monad m) =>
          Interpret ReturnStmt (JavaScriptT m) Completion where
   interpret (ReturnStmt) = do
-    return $ Completion CompletionTypeReturn (inj Undefined) Nothing
+    return $ Completion CompletionTypeReturn (Just . r.r.inj $ Undefined) Nothing
   interpret (ReturnStmtExpr e) = do
     exprRef <- interpret e
     v <- getValue exprRef
@@ -917,7 +916,7 @@ instance (Functor m, Monad m) =>
 instance (Functor m, Monad m) =>
          Interpret FuncBody (JavaScriptT m) Completion where
   interpret (FuncBody Nothing) = return $
-    Completion CompletionTypeNormal (Just (inj Undefined)) Nothing
+    Completion CompletionTypeNormal (Just (r.r.inj $ Undefined)) Nothing
   interpret (FuncBody (Just ses)) = interpret ses
 
 instance (Functor m, Monad m) =>
@@ -949,38 +948,38 @@ instance (Functor m, Monad m) =>
        case getBase ref of
         BaseUndefined _ -> do
           if isStrictReference ref
-            then newSyntaxErrorObject Nothing >>= jsThrow
-            else return $ inj True
+            then newSyntaxErrorObject Nothing >>= jsThrow . inj
+            else return . r.r.r.r.r.r.inj $ True
         BaseProperty propertyBase -> do
-          obj <- toObject $ inj propertyBase
-          inj <$> delete obj (getReferencedName ref) (isStrictReference ref)
+          obj <- toObject . r.r.r.inj $ propertyBase
+          r.r.r.r.r.r.inj <$> delete obj (getReferencedName ref) (isStrictReference ref)
         BaseEnvironmentRecord environmentRecordBase -> do
            if isStrictReference ref
-             then newSyntaxErrorObject Nothing >>= jsThrow
+             then newSyntaxErrorObject Nothing >>= jsThrow . inj
              else do
-             inj <$> deleteBinding environmentRecordBase (getReferencedName ref)
+             r.r.r.r.r.r.inj <$> deleteBinding environmentRecordBase (getReferencedName ref)
 
   interpret (UExprVoid ue) = do
     expr <- interpret ue
     getValue expr
-    return $ inj Undefined
+    return . r.r.r.inj $ Undefined
 
   interpret (UExprTypeOf ue) = do
     vr <- interpret ue
     case vr of
      Left ref -> do
        if isUnresolvableReference ref
-         then return $ inj "undefined"
+         then return $ r.r.r.r.r.inj $ "undefined"
          else do
-         val <- getValue ref
-         return . inj . show $ typeOf val
+         val <- getValue . inj $ ref
+         return . r.r.r.r.r.inj . show . typeOf . r.r.r.r.r.r.r.inj $ val
      Right val -> do
-       return . inj . show $ typeOf val
+       return . r.r.r.r.r.inj . show . typeOf . r.r.r.r.r.r.r.inj $ val
 
   interpret (UExprDoublePlus ue) = do
-    (expr :: CallValue) <- interpret ue
-    case prj expr of
-     Just ref -> do
+    expr <- interpret ue
+    case expr of
+     CallValueReference ref -> do
        if isStrictReference ref
          then do
          case prj (getBase ref) of
@@ -988,16 +987,16 @@ instance (Functor m, Monad m) =>
             let name = getReferencedName ref
             if name == "eval" ||
                name == "arguments"
-              then newSyntaxErrorObject Nothing >>= jsThrow
+              then newSyntaxErrorObject Nothing >>= jsThrow . inj
               else return ()
           Nothing -> return ()
          else return ()
-     Nothing -> return ()
+     _ -> return ()
     v <- getValue expr
     oldValue <- toNumber v
     let newValue = oldValue + (Number 1)
-    putValue expr newValue
-    return $ inj newValue
+    putValue expr (r.r.r.inj $ newValue)
+    return . r.r.r.r.inj $ newValue
 
   interpret (UExprDoubleMinus ue) = do
     expr <- interpret ue
@@ -1010,7 +1009,7 @@ instance (Functor m, Monad m) =>
             let name = getReferencedName ref
             if name == "eval" ||
                name == "arguments"
-              then newSyntaxErrorObject Nothing >>= jsThrow
+              then newSyntaxErrorObject Nothing >>= jsThrow . inj
               else return ()
           Nothing -> return ()
          else return ()
@@ -1018,31 +1017,31 @@ instance (Functor m, Monad m) =>
     v <- getValue expr
     oldValue <- toNumber v
     let newValue = oldValue - (Number 1)
-    putValue expr newValue
-    return $ inj newValue
+    putValue expr (r.r.r.inj $ newValue)
+    return . r.r.r.r.inj $ newValue
 
   interpret (UExprUnaryPlus ue) = do
     expr <- interpret ue
     v <- getValue expr
-    inj <$> toNumber v
+    r.r.r.r.inj <$> toNumber v
 
   interpret (UExprUnaryMinus ue) = do
     expr <- interpret ue
     v <- getValue expr
     oldValue <- toNumber v
-    return $ inj (-oldValue)
+    return . r.r.r.r.inj $ (-oldValue)
 
   interpret (UExprBitNot ue) = do
     expr <- interpret ue
     v <- getValue expr
     oldValue <- toInt32 v
-    return $ inj $ Number (fromIntegral $ complement oldValue)
+    return . r.r.r.r.inj . Number . fromIntegral . complement $ oldValue
 
   interpret (UExprNot ue) = do
     expr <- interpret ue
     v <- getValue expr
     let oldValue = toBoolean v
-    return $ inj $ not oldValue
+    return . r.r.r.r.r.r.inj . not $ oldValue
 
 instance (Functor m, Monad m) =>
          Interpret MemberExpr (JavaScriptT m) CallValue where
@@ -1052,7 +1051,7 @@ instance (Functor m, Monad m) =>
 
   interpret (MemberExprFunc fe) = do
     (o :: Object) <- interpret fe
-    return $ inj o
+    return $ r.inj $ o
 
   interpret (MemberExprArray me expr) = do
     baseReference <- interpret me
@@ -1062,14 +1061,14 @@ instance (Functor m, Monad m) =>
     baseValueCoercible <- toObjectCoercible baseValue
     propertyNameString <- toString propertyNameValue
     let strict = False
-    return $ inj $ Reference (inj baseValueCoercible) propertyNameString strict
+    return $ inj $ Reference (r . s $ baseValueCoercible) propertyNameString strict
 
-  interpret (MemberExprDot me (IdentName s)) = do
+  interpret (MemberExprDot me (IdentName i)) = do
     baseReference <- interpret me
     baseValue <- getValue baseReference
     baseValueCoercible <- toObjectCoercible baseValue
     let strict = False
-    return $ inj $ Reference (inj baseValueCoercible) s strict
+    return $ inj $ Reference (r . s $ baseValueCoercible) i strict
 
   interpret (MemberExprNew me args) = do
     ref <- interpret me
@@ -1077,8 +1076,8 @@ instance (Functor m, Monad m) =>
     argList <- interpret args
     case constructor of
      ValueObject o -> do
-       inj <$> construct o argList
-     _ -> newTypeErrorObject Nothing >>= jsThrow
+       r.inj <$> construct o argList
+     _ -> newTypeErrorObject Nothing >>= jsThrow . inj
 
 instance (Functor m, Monad m) =>
          Interpret NewExpr (JavaScriptT m) CallValue where
@@ -1088,8 +1087,8 @@ instance (Functor m, Monad m) =>
     constructor <- getValue ref
     case constructor of
      ValueObject o -> do
-       inj <$> construct o (List [])
-     _ -> newTypeErrorObject Nothing >>= jsThrow
+       r.inj <$> construct o (List [])
+     _ -> newTypeErrorObject Nothing >>= jsThrow . inj
 
 
 instance (Functor m, Monad m) =>
@@ -1104,12 +1103,12 @@ instance (Functor m, Monad m) =>
          case rv of
           Left ref -> do
             case toPropertyReference ref of
-              Right propertyBase -> return $ inj propertyBase
+              Right propertyBase -> return . s . s $ propertyBase
               Left (Left er) -> do
                 implicitThisValue er
-          _ -> return $ inj Undefined
+          _ -> return . r.r.inj $ Undefined
        call o thisValue argList
-     _ -> newTypeErrorObject Nothing >>= jsThrow
+     _ -> newTypeErrorObject Nothing >>= jsThrow . inj
 
   interpret (CallExprCall ce args) = do
     rv <- interpret ce
@@ -1121,12 +1120,12 @@ instance (Functor m, Monad m) =>
          case rv of
           Left ref -> do
             case toPropertyReference ref of
-              Right propertyBase -> return $ inj propertyBase
+              Right propertyBase -> return . s . s $ propertyBase
               Left (Left er) -> do
                 implicitThisValue er
-          _ -> return $ inj Undefined
+          _ -> return . r.r.inj $ Undefined
        call o thisValue argList
-     _ -> newTypeErrorObject Nothing >>= jsThrow
+     _ -> newTypeErrorObject Nothing >>= jsThrow . inj
 
   interpret (CallExprArray ce expr) = do
     baseReference <- interpret ce
@@ -1136,14 +1135,14 @@ instance (Functor m, Monad m) =>
     baseValueCoercible <- toObjectCoercible baseValue
     propertyNameString <- toString propertyNameValue
     let strict = False
-    return $ inj $ Reference (inj baseValueCoercible) propertyNameString strict
+    return $ inj $ Reference (r . s $ baseValueCoercible) propertyNameString strict
 
-  interpret (CallExprDot ce (IdentName s)) = do
+  interpret (CallExprDot ce (IdentName i)) = do
     baseReference <- interpret ce
     baseValue <- getValue baseReference
     baseValueCoercible <- toObjectCoercible baseValue
     let strict = False
-    return $ inj $ Reference (inj baseValueCoercible) s strict
+    return $ inj $ Reference (r . s $ baseValueCoercible) i strict
 
 instance (Functor m, Monad m) =>
          Interpret Arguments (JavaScriptT m) (List Value) where
@@ -1183,13 +1182,13 @@ instance (Functor m, Monad m) =>
           BaseEnvironmentRecord _ -> do
             let name = getReferencedName ref
             when (name == "eval" || name == "arguments") $
-              newSyntaxErrorObject Nothing >>= jsThrow
+              newSyntaxErrorObject Nothing >>= jsThrow . inj
           _ -> return ()
      _ -> return ()
-    oldValue <- getValue lhs >>= toNumber
+    oldValue <- getValue lhs >>= toNumber . inj
     let newValue = oldValue + (Number 1)
-    putValue lhs newValue
-    return (inj oldValue)
+    putValue lhs (r.r.r.inj $ newValue)
+    return (r.r.r.r.inj $ oldValue)
 
   interpret (PostFixExprPostDec le) = do
     lhs <- interpret le
@@ -1200,13 +1199,13 @@ instance (Functor m, Monad m) =>
           BaseEnvironmentRecord _ -> do
             let name = getReferencedName ref
             when (name == "eval" || name == "arguments") $
-              newSyntaxErrorObject Nothing >>= jsThrow
+              newSyntaxErrorObject Nothing >>= jsThrow . inj
           _ -> return ()
      _ -> return ()
-    oldValue <- getValue lhs >>= toNumber
+    oldValue <- getValue lhs >>= toNumber . inj
     let newValue = oldValue - (Number 1)
-    putValue lhs newValue
-    return (inj oldValue)
+    putValue lhs (r.r.r.inj $ newValue)
+    return (r.r.r.r.inj $ oldValue)
 
 instance (Functor m, Monad m) =>
          Interpret MultExpr (JavaScriptT m) CallValue where
@@ -1215,17 +1214,17 @@ instance (Functor m, Monad m) =>
   interpret (MultExprMult me ue) = do
     left <- interpret me
     right <- interpret ue
-    inj <$> left `operatorMult` right
+    r.r.r.r.inj <$> left `operatorMult` right
 
   interpret (MultExprDiv me ue) = do
     left <- interpret me
     right <- interpret ue
-    inj <$> left `operatorDiv` right
+    r.r.r.r.inj <$> left `operatorDiv` right
 
   interpret (MultExprMod me ue) = do
     left <- interpret me
     right <- interpret ue
-    inj <$> left `operatorMod` right
+    r.r.r.r.inj <$> left `operatorMod` right
 
 instance (Functor m, Monad m) =>
          Interpret AddExpr (JavaScriptT m) CallValue where
@@ -1234,12 +1233,12 @@ instance (Functor m, Monad m) =>
   interpret (AddExprAdd ae me) = do
     lref <- interpret ae
     rref <- interpret me
-    inj <$> lref `operatorPlus` rref
+    r.inj <$> lref `operatorPlus` rref
 
   interpret (AddExprSub ae me) = do
     lref <- interpret ae
     rref <- interpret me
-    inj <$> lref `operatorMinus` rref
+    r.r.r.r.inj <$> lref `operatorMinus` rref
 
 instance (Functor m, Monad m) =>
          Interpret ShiftExpr (JavaScriptT m) CallValue where
@@ -1247,17 +1246,17 @@ instance (Functor m, Monad m) =>
   interpret (ShiftExprLeft se ae) = do
     lref <- interpret se
     rref <- interpret ae
-    inj <$> lref `operatorLeftShift` rref
+    r.r.r.r.inj <$> lref `operatorLeftShift` rref
 
   interpret (ShiftExprRight se ae) = do
     lref <- interpret se
     rref <- interpret ae
-    inj <$> lref `operatorSignedRightShift` rref
+    r.r.r.r.inj <$> lref `operatorSignedRightShift` rref
 
   interpret (ShiftExprRightZero se ae) = do
     lref <- interpret se
     rref <- interpret ae
-    inj <$> lref `operatorUnsignedRightShift` rref
+    r.r.r.r.inj <$> lref `operatorUnsignedRightShift` rref
 
 instance (Functor m, Monad m) =>
          Interpret RelExpr (JavaScriptT m) CallValue where
@@ -1270,18 +1269,18 @@ instance (Functor m, Monad m) =>
     rval <- getValue rref
     mr <- compareLess lval rval True
     case mr of
-     JSNothing -> return $ inj False
-     JSJust r -> return $ inj r
+     JSNothing -> return . r.r.r.r.r.r $ False
+     JSJust v -> return . r.r.r.r.r.r $ v
 
   interpret (RelExprGreater re se) = do
     lref <- interpret re
     lval <- getValue lref
     rref <- interpret se
     rval <- getValue rref
-    mr <- compareLess rval lval False
-    case mr of
-     JSNothing -> return $ inj False
-     JSJust r -> return $ inj r
+    mv <- compareLess rval lval False
+    case mv of
+     JSNothing -> return . r.r.r.r.r.r $ False
+     JSJust v -> return . r.r.r.r.r.r $ v
 
   interpret (RelExprLessEq re se) = do
     lref <- interpret re
@@ -1290,8 +1289,8 @@ instance (Functor m, Monad m) =>
     rval <- getValue rref
     mr <- compareLess rval lval False
     case mr of
-     JSNothing -> return $ inj False
-     JSJust _ -> return $ inj True
+     JSNothing -> return . r.r.r.r.r.r $ False
+     JSJust _ -> return . r.r.r.r.r.r $ True
 
   interpret (RelExprGreaterEq re se) = do
     lref <- interpret re
@@ -1300,9 +1299,9 @@ instance (Functor m, Monad m) =>
     rval <- getValue rref
     mr <- compareLess lval rval True
     case mr of
-     JSNothing -> return $ inj False
-     JSJust True -> return $ inj False
-     JSJust False -> return $ inj True
+     JSNothing -> return . r.r.r.r.r.r $ False
+     JSJust True -> return . r.r.r.r.r.r $ False
+     JSJust False -> return . r.r.r.r.r.r $ True
 
   interpret (RelExprInstanceOf re se) = do
     lref <- interpret re
@@ -1311,8 +1310,8 @@ instance (Functor m, Monad m) =>
     rval <- getValue rref
     case rval of
      ValueObject o -> do
-       inj <$> hasInstance o lval
-     _ -> newTypeErrorObject Nothing >>= jsThrow
+       r.r.r.r.r.r.inj <$> hasInstance o lval
+     _ -> newTypeErrorObject Nothing >>= jsThrow . inj
 
   interpret (RelExprIn re se) = do
     lref <- interpret re
@@ -1320,10 +1319,10 @@ instance (Functor m, Monad m) =>
     rref <- interpret se
     rval <- getValue rref
     case prj rval of
-     Nothing -> newTypeErrorObject Nothing >>= jsThrow
+     Nothing -> newTypeErrorObject Nothing >>= jsThrow . inj
      Just obj -> do
        s <- toString lval
-       inj <$> hasProperty obj s
+       r.r.r.r.r.r.inj <$> hasProperty obj s
 
 instance (Functor m, Monad m) =>
          Interpret RelExprNoIn (JavaScriptT m) CallValue where
@@ -1335,18 +1334,18 @@ instance (Functor m, Monad m) =>
     rval <- getValue rref
     mr <- compareLess lval rval True
     case mr of
-     JSNothing -> return $ inj False
-     JSJust r -> return $ inj r
+     JSNothing -> return . r.r.r.r.r.r $ False
+     JSJust v -> return . r.r.r.r.r.r $ v
 
   interpret (RelExprNoInGreater re se) = do
     lref <- interpret re
     lval <- getValue lref
     rref <- interpret se
     rval <- getValue rref
-    mr <- compareLess rval lval False
-    case mr of
-     JSNothing -> return $ inj False
-     JSJust r -> return $ inj r
+    mv <- compareLess rval lval False
+    case mv of
+     JSNothing -> return . r.r.r.r.r.r $ False
+     JSJust v -> return . r.r.r.r.r.r $ v
 
   interpret (RelExprNoInLessEq re se) = do
     lref <- interpret re
@@ -1355,8 +1354,8 @@ instance (Functor m, Monad m) =>
     rval <- getValue rref
     mr <- compareLess rval lval False
     case mr of
-     JSNothing -> return $ inj False
-     JSJust _ -> return $ inj True
+     JSNothing -> return . r.r.r.r.r.r $ False
+     JSJust _ -> return . r.r.r.r.r.r $ True
 
   interpret (RelExprNoInGreaterEq re se) = do
     lref <- interpret re
@@ -1365,9 +1364,9 @@ instance (Functor m, Monad m) =>
     rval <- getValue rref
     mr <- compareLess lval rval True
     case mr of
-     JSNothing -> return $ inj False
-     JSJust True -> return $ inj False
-     JSJust False -> return $ inj True
+     JSNothing -> return . r.r.r.r.r.r $ False
+     JSJust True -> return . r.r.r.r.r.r $ False
+     JSJust False -> return . r.r.r.r.r.r $ True
 
   interpret (RelExprNoInInstanceOf re se) = do
     lref <- interpret re
@@ -1376,8 +1375,8 @@ instance (Functor m, Monad m) =>
     rval <- getValue rref
     case rval of
      ValueObject obj ->
-       inj <$> hasInstance obj lval
-     _ -> newTypeErrorObject Nothing >>= jsThrow
+       r.r.r.r.r.r.inj <$> hasInstance obj lval
+     _ -> newTypeErrorObject Nothing >>= jsThrow . inj
 
 instance (Functor m, Monad m) =>
          Interpret EqExpr (JavaScriptT m) CallValue where
@@ -1388,29 +1387,29 @@ instance (Functor m, Monad m) =>
     lval <- getValue lref
     rref <- interpret re
     rval <- getValue rref
-    inj <$> compare rval lval
+    r.r.r.r.r.r.inj <$> compare rval lval
 
   interpret (EqExprNotEq eq re) = do
     lref <- interpret eq
     lval <- getValue lref
     rref <- interpret re
     rval <- getValue rref
-    r <- compare rval lval
-    return $ inj $ not r
+    rv <- compare rval lval
+    return . r.r.r.r.r.r . not $ rv
 
   interpret (EqExprStrictEq eq re) = do
     lref <- interpret eq
     lval <- getValue lref
     rref <- interpret re
     rval <- getValue rref
-    return $ inj $ compareStrict rval lval
+    return . r.r.r.r.r.r $ compareStrict rval lval
 
   interpret (EqExprStrictNotEq eq re) = do
     lref <- interpret eq
     lval <- getValue lref
     rref <- interpret re
     rval <- getValue rref
-    return $ inj $ not $ compareStrict rval lval
+    return . r.r.r.r.r.r . not $ compareStrict rval lval
 
 instance (Functor m, Monad m) =>
          Interpret EqExprNoIn (JavaScriptT m) CallValue where
@@ -1421,29 +1420,29 @@ instance (Functor m, Monad m) =>
     lval <- getValue lref
     rref <- interpret re
     rval <- getValue rref
-    inj <$> compare rval lval
+    r.r.r.r.r.r <$> compare rval lval
 
   interpret (EqExprNoInNotEq eq re) = do
     lref <- interpret eq
     lval <- getValue lref
     rref <- interpret re
     rval <- getValue rref
-    r <- compare rval lval
-    return $ inj $ not r
+    rv <- compare rval lval
+    return . r.r.r.r.r.r . not $ rv
 
   interpret (EqExprNoInStrictEq eq re) = do
     lref <- interpret eq
     lval <- getValue lref
     rref <- interpret re
     rval <- getValue rref
-    return $ inj $ compareStrict rval lval
+    return . r.r.r.r.r.r $ compareStrict rval lval
 
   interpret (EqExprNoInStrictNotEq eq re) = do
     lref <- interpret eq
     lval <- getValue lref
     rref <- interpret re
     rval <- getValue rref
-    return $ inj $ not $ compareStrict rval lval
+    return . r.r.r.r.r.r . not $ compareStrict rval lval
 
 instance (Functor m, Monad m) =>
          Interpret BitAndExpr (JavaScriptT m) CallValue where
@@ -1452,7 +1451,7 @@ instance (Functor m, Monad m) =>
   interpret (BitAndExprAnd bae eq) = do
     lref <- interpret bae
     rref <- interpret eq
-    inj <$> lref `operatorBitwiseAnd` rref
+    r.r.r.r.inj <$> lref `operatorBitwiseAnd` rref
 
 instance (Functor m, Monad m) =>
          Interpret BitAndExprNoIn (JavaScriptT m) CallValue where
@@ -1461,7 +1460,7 @@ instance (Functor m, Monad m) =>
   interpret (BitAndExprNoInAnd bae eq) = do
     lref <- interpret bae
     rref <- interpret eq
-    inj <$> lref `operatorBitwiseAnd` rref
+    r.r.r.r.inj <$> lref `operatorBitwiseAnd` rref
 
 instance (Functor m, Monad m) =>
          Interpret BitXorExpr (JavaScriptT m) CallValue where
@@ -1470,7 +1469,7 @@ instance (Functor m, Monad m) =>
   interpret (BitXorExprXor bae eq) = do
     lref <- interpret bae
     rref <- interpret eq
-    inj <$> lref `operatorBitwiseXor` rref
+    r.r.r.r.inj <$> lref `operatorBitwiseXor` rref
 
 instance (Functor m, Monad m) =>
          Interpret BitXorExprNoIn (JavaScriptT m) CallValue where
@@ -1479,7 +1478,7 @@ instance (Functor m, Monad m) =>
   interpret (BitXorExprNoInXor bae eq) = do
     lref <- interpret bae
     rref <- interpret eq
-    inj <$> lref `operatorBitwiseXor` rref
+    r.r.r.r.inj <$> lref `operatorBitwiseXor` rref
 
 instance (Functor m, Monad m) =>
          Interpret BitOrExpr (JavaScriptT m) CallValue where
@@ -1488,7 +1487,7 @@ instance (Functor m, Monad m) =>
   interpret (BitOrExprOr bae eq) = do
     lref <- interpret bae
     rref <- interpret eq
-    inj <$> lref `operatorBitwiseOr` rref
+    r.r.r.r.inj <$> lref `operatorBitwiseOr` rref
 
 instance (Functor m, Monad m) =>
          Interpret BitOrExprNoIn (JavaScriptT m) CallValue where
@@ -1497,7 +1496,7 @@ instance (Functor m, Monad m) =>
   interpret (BitOrExprNoInOr bae eq) = do
     lref <- interpret bae
     rref <- interpret eq
-    inj <$> lref `operatorBitwiseOr` rref
+    r.r.r.r.inj <$> lref `operatorBitwiseOr` rref
 
 instance (Functor m, Monad m) =>
          Interpret LogicalAndExpr (JavaScriptT m) CallValue where
@@ -1507,10 +1506,10 @@ instance (Functor m, Monad m) =>
     lref <- interpret lae
     lval <- getValue lref
     if not $ toBoolean lval
-      then return $ inj lval
+      then return $ r.inj $ lval
       else do
       rref <- interpret boe
-      inj <$> getValue rref
+      r.inj <$> getValue rref
 
 instance (Functor m, Monad m) =>
          Interpret LogicalAndExprNoIn (JavaScriptT m) CallValue where
@@ -1522,10 +1521,10 @@ instance (Functor m, Monad m) =>
     lref <- interpret lae
     lval <- getValue lref
     if not $ toBoolean lval
-      then return $ inj lval
+      then return $ r.inj $ lval
       else do
       rref <- interpret boe
-      inj <$> getValue rref
+      r.inj <$> getValue rref
 
 instance (Functor m, Monad m) =>
          Interpret LogicalOrExpr (JavaScriptT m) CallValue where
@@ -1535,10 +1534,10 @@ instance (Functor m, Monad m) =>
     lref <- interpret lae
     lval <- getValue lref
     if not $ toBoolean lval
-      then return $ inj lval
+      then return $ r.inj $ lval
       else do
       rref <- interpret boe
-      inj <$> getValue rref
+      r.inj <$> getValue rref
 
 instance (Functor m, Monad m) =>
          Interpret LogicalOrExprNoIn (JavaScriptT m) CallValue where
@@ -1548,10 +1547,10 @@ instance (Functor m, Monad m) =>
     lref <- interpret lae
     lval <- getValue lref
     if toBoolean lval
-      then return $ inj lval
+      then return $ r.inj $ lval
       else do
       rref <- interpret boe
-      inj <$> getValue rref
+      r.inj <$> getValue rref
 
 instance (Functor m, Monad m) =>
          Interpret CondExpr (JavaScriptT m) CallValue where
@@ -1563,10 +1562,10 @@ instance (Functor m, Monad m) =>
     if toBoolean lval
       then do
       trueRef <- interpret ae1
-      inj <$> getValue trueRef
+      r.inj <$> getValue trueRef
       else do
       falseRef <- interpret ae2
-      inj <$> getValue falseRef
+      r.inj <$> getValue falseRef
 
 instance (Functor m, Monad m) =>
          Interpret CondExprNoIn (JavaScriptT m) CallValue where
@@ -1578,10 +1577,10 @@ instance (Functor m, Monad m) =>
     if toBoolean lval
       then do
       trueRef <- interpret ae1
-      inj <$> getValue trueRef
+      r.inj <$> getValue trueRef
       else do
       falseRef <- interpret ae2
-      inj <$> getValue falseRef
+      r.inj <$> getValue falseRef
 
 instance (Functor m, Monad m) =>
          Interpret AssignExpr (JavaScriptT m) CallValue where
@@ -1594,41 +1593,41 @@ instance (Functor m, Monad m) =>
     case lref of
      CallValueReference ref -> do
        when (isStrictReference ref &&
-             typeOf (getBase ref) == TypeEnvironmentRecord &&
+             typeOf (s.s.s.s.s.s.s2  $ getBase ref) == TypeEnvironmentRecord &&
              (getReferencedName ref == "eval" ||
               getReferencedName ref == "arguments")) $ do
-         newSyntaxErrorObject Nothing >>= jsThrow
+         newSyntaxErrorObject Nothing >>= jsThrow . inj
      _ -> return ()
     putValue lref rval
-    return $ inj rval
+    return . r $ rval
 
   interpret (AssignExprAssign le aop ae) = do
     lref <- interpret le
     lval <- getValue lref
     rref <- interpret ae
     rval <- getValue rref
-    r <- case aop of
-          AssignOpMult -> inj <$> lval `operatorMult` rval
-          AssignOpDiv -> inj <$> lval `operatorDiv` rval
-          AssignOpMod -> inj <$> lval `operatorMod` rval
-          AssignOpPlus -> lval `operatorPlus` rval
-          AssignOpMinus -> inj <$> lval `operatorMinus` rval
-          AssignOpShiftLeft -> inj <$> lval `operatorLeftShift` rval
-          AssignOpShiftRight -> inj <$> lval `operatorSignedRightShift` rval
-          AssignOpShiftRightZero -> inj <$> lval `operatorUnsignedRightShift` rval
-          AssignOpBitAnd -> inj <$> lval `operatorBitwiseAnd` rval
-          AssignOpBitXor -> inj <$> lval `operatorBitwiseXor` rval
-          AssignOpBitOr -> inj <$> lval `operatorBitwiseOr` rval
+    rv <- case aop of
+          AssignOpMult -> r.r.r.inj <$> (r lval) `operatorMult` (r rval)
+          AssignOpDiv -> r.r.r.inj <$> (r lval) `operatorDiv` (r rval)
+          AssignOpMod -> r.r.r.inj <$> (r lval) `operatorMod` (r rval)
+          AssignOpPlus -> (r lval) `operatorPlus` (r rval)
+          AssignOpMinus -> r.r.r.inj <$> (r lval) `operatorMinus` (r rval)
+          AssignOpShiftLeft -> r.r.r.inj <$> (r lval) `operatorLeftShift` (r rval)
+          AssignOpShiftRight -> r.r.r.inj <$> (r lval) `operatorSignedRightShift` (r rval)
+          AssignOpShiftRightZero -> r.r.r.inj <$> (r lval) `operatorUnsignedRightShift` (r rval)
+          AssignOpBitAnd -> r.r.r.inj <$> (r lval) `operatorBitwiseAnd` (r rval)
+          AssignOpBitXor -> r.r.r.inj <$> (r lval) `operatorBitwiseXor` (r rval)
+          AssignOpBitOr -> r.r.r.inj <$> (r lval) `operatorBitwiseOr` (r rval)
     case lref of
      CallValueReference ref -> do
        when (isStrictReference ref &&
-             typeOf (getBase ref) == TypeEnvironmentRecord &&
+             typeOf (s.s.s.s.s.s.s2 $ getBase ref) == TypeEnvironmentRecord &&
              (getReferencedName ref == "eval" ||
               getReferencedName ref == "arguments")) $ do
-         newSyntaxErrorObject Nothing >>= jsThrow
+         newSyntaxErrorObject Nothing >>= jsThrow . inj
      _ -> return ()
-    putValue lref r
-    return $ inj r
+    putValue lref rv
+    return $ r rv
 
 instance (Functor m, Monad m) =>
          Interpret AssignExprNoIn (JavaScriptT m) CallValue where
@@ -1641,41 +1640,41 @@ instance (Functor m, Monad m) =>
     case prj lref of
      Just ref -> do
        when (isStrictReference ref &&
-             typeOf (getBase ref) == TypeEnvironmentRecord &&
+             typeOf (s.s.s.s.s.s.s2 $ getBase ref) == TypeEnvironmentRecord &&
              (getReferencedName ref == "eval" ||
               getReferencedName ref == "arguments")) $ do
-         newSyntaxErrorObject Nothing >>= jsThrow
+         newSyntaxErrorObject Nothing >>= jsThrow . inj
      Nothing -> return ()
     putValue lref rval
-    return $ inj rval
+    return $ r rval
 
   interpret (AssignExprNoInAssign le aop ae) = do
     lref <- interpret le
     lval <- getValue lref
     rref <- interpret ae
     rval <- getValue rref
-    r <- case aop of
-          AssignOpMult -> inj <$> lval `operatorMult` rval
-          AssignOpDiv -> inj <$> lval `operatorDiv` rval
-          AssignOpMod -> inj <$> lval `operatorMod` rval
-          AssignOpPlus -> lval `operatorPlus` rval
-          AssignOpMinus -> inj <$> lval `operatorMinus` rval
-          AssignOpShiftLeft -> inj <$> lval `operatorLeftShift` rval
-          AssignOpShiftRight -> inj <$> lval `operatorSignedRightShift` rval
-          AssignOpShiftRightZero -> inj <$> lval `operatorUnsignedRightShift` rval
-          AssignOpBitAnd -> inj <$> lval `operatorBitwiseAnd` rval
-          AssignOpBitXor -> inj <$> lval `operatorBitwiseXor` rval
-          AssignOpBitOr -> inj <$> lval `operatorBitwiseOr` rval
+    rv <- case aop of
+          AssignOpMult -> r.r.r.inj <$> (r lval) `operatorMult` (r rval)
+          AssignOpDiv -> r.r.r.inj <$> (r lval) `operatorDiv` (r rval)
+          AssignOpMod -> r.r.r.inj <$> (r lval) `operatorMod` (r rval)
+          AssignOpPlus -> (r lval) `operatorPlus` (r rval)
+          AssignOpMinus -> r.r.r.inj <$> (r lval) `operatorMinus` (r rval)
+          AssignOpShiftLeft -> r.r.r.inj <$> (r lval) `operatorLeftShift` (r rval)
+          AssignOpShiftRight -> r.r.r.inj <$> (r lval) `operatorSignedRightShift` (r rval)
+          AssignOpShiftRightZero -> r.r.r.inj <$> (r lval) `operatorUnsignedRightShift` (r rval)
+          AssignOpBitAnd -> r.r.r.inj <$> (r lval) `operatorBitwiseAnd` (r rval)
+          AssignOpBitXor -> r.r.r.inj <$> (r lval) `operatorBitwiseXor` (r rval)
+          AssignOpBitOr -> r.r.r.inj <$> (r lval) `operatorBitwiseOr` (r rval)
     case prj lref of
      Just ref -> do
        when (isStrictReference ref &&
-             typeOf (getBase ref) == TypeEnvironmentRecord &&
+             typeOf (s.s.s.s.s.s.s2 $ getBase ref) == TypeEnvironmentRecord &&
              (getReferencedName ref == "eval" ||
               getReferencedName ref == "arguments")) $ do
-         newSyntaxErrorObject Nothing >>= jsThrow
+         newSyntaxErrorObject Nothing >>= jsThrow . inj
      Nothing -> return ()
-    putValue lref r
-    return $ inj r
+    putValue lref rv
+    return $ r rv
 
 instance (Functor m, Monad m) =>
          Interpret Expr (JavaScriptT m) CallValue where
@@ -1685,7 +1684,7 @@ instance (Functor m, Monad m) =>
     lref <- interpret e
     getValue lref
     rref <- interpret ae
-    inj <$> getValue rref
+    r <$> getValue rref
 
 instance (Functor m, Monad m) =>
          Interpret ExprNoIn (JavaScriptT m) CallValue where
@@ -1695,7 +1694,7 @@ instance (Functor m, Monad m) =>
     lref <- interpret e
     getValue lref
     rref <- interpret ae
-    inj <$> getValue rref
+    r <$> getValue rref
 
 instance (Functor m, Monad m) =>
          Interpret Ident (JavaScriptT m) Reference where
@@ -1761,7 +1760,7 @@ declarationBindingInstantiation c = do
       (flip . flip foldlM) n ns $ \n argName -> do
         let n' = n+1
             v = if n' > argCount
-                then inj Undefined
+                then r.r.inj $ Undefined
                 else as !! (n' - 1)
         argAlreadyDeclared <- hasBindingDeclarative env argName
         when (not argAlreadyDeclared) $ do
@@ -1816,7 +1815,7 @@ declarationBindingInstantiation c = do
         varAlreadyDeclared <- hasBinding env dn
         when (not varAlreadyDeclared) $ do
           createMutableBinding env dn (Just configurableBindings)
-          setMutableBinding env dn (inj Undefined) strict
+          setMutableBinding env dn (r.r.inj $ Undefined) strict
       return ()
 
     extractFuncDecls :: SourceElements -> [FuncDecl]
@@ -2013,17 +2012,17 @@ initialState =
         objectInternalProperties        =
            Map.fromList
            [ ("NaN", PropertyData $ DataDescriptor {
-                 dataDescriptorValue          = inj nan,
+                 dataDescriptorValue          = r.r.r.inj $ nan,
                  dataDescriptorWritable       = False,
                  dataDescriptorEnumerable     = False,
                  dataDescriptorConfigurable   = False })
            , ("Infinity", PropertyData $ DataDescriptor {
-                 dataDescriptorValue          = inj posInf,
+                 dataDescriptorValue          = r.r.r.inj $ posInf,
                  dataDescriptorWritable       = False,
                  dataDescriptorEnumerable     = False,
                  dataDescriptorConfigurable   = False })
            , ("undefined", PropertyData $ DataDescriptor {
-                 dataDescriptorValue          = inj Undefined,
+                 dataDescriptorValue          = r.r.inj $ Undefined,
                  dataDescriptorWritable       = False,
                  dataDescriptorEnumerable     = False,
                  dataDescriptorConfigurable   = False })
@@ -2197,7 +2196,7 @@ initialState =
         objectInternalProperties        =
            Map.fromList
            [ ("length", PropertyData $ def {
-                 dataDescriptorValue = inj $ Number 0 })
+                 dataDescriptorValue = r.r.r.inj $ Number 0 })
            , ("constructor", PropertyData $ DataDescriptor {
                  dataDescriptorValue = inj arrayConstructor,
                  dataDescriptorWritable = True,
@@ -2386,7 +2385,7 @@ initialState =
         objectInternalDelete            = deleteImpl,
         objectInternalDefaultValue      = defaultValueImpl,
         objectInternalDefineOwnProperty = defineOwnPropertyImpl,
-        objectInternalPrimitiveValue    = Just (const $ return (inj False)),
+        objectInternalPrimitiveValue    = Just . const . return . r.r.r.r $ False,
         objectInternalConstruct         = Nothing,
         objectInternalCall              = Nothing,
         objectInternalHasInstance       = Nothing,
@@ -2418,7 +2417,7 @@ initialState =
         objectInternalDelete            = deleteImpl,
         objectInternalDefaultValue      = defaultValueImpl,
         objectInternalDefineOwnProperty = defineOwnPropertyImpl,
-        objectInternalPrimitiveValue    = Just (const $ return (inj nan)),
+        objectInternalPrimitiveValue    = Just (const . return . r.r.inj $ nan),
         objectInternalConstruct         = Nothing,
         objectInternalCall              = Nothing,
         objectInternalHasInstance       = Nothing,
@@ -2441,12 +2440,12 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
            , ("name", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj "Error",
+                 dataDescriptorValue = r.r.r.r.inj $ "Error",
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
            , ("message", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj "",
+                 dataDescriptorValue = r.r.r.r.inj $ "",
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
@@ -2496,12 +2495,12 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
            , ("name", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj "EvalError",
+                 dataDescriptorValue = r.r.r.r.inj $ "EvalError",
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
            , ("message", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj "",
+                 dataDescriptorValue = r.r.r.r.inj $ "",
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
@@ -2540,12 +2539,12 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
            , ("name", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj "RangeError",
+                 dataDescriptorValue = r.r.r.r.inj $ "RangeError",
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
            , ("message", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj "",
+                 dataDescriptorValue = r.r.r.r.inj $ "",
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
@@ -2584,12 +2583,12 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
            , ("name", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj "ReferenceError",
+                 dataDescriptorValue = r.r.r.r.inj $ "ReferenceError",
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
            , ("message", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj "",
+                 dataDescriptorValue = r.r.r.r.inj $ "",
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
@@ -2628,12 +2627,12 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
            , ("name", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj "SyntaxError",
+                 dataDescriptorValue = r.r.r.r.inj $ "SyntaxError",
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
            , ("message", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj "",
+                 dataDescriptorValue = r.r.r.r.inj $ "",
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
@@ -2672,12 +2671,12 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
            , ("name", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj "TypeError",
+                 dataDescriptorValue = r.r.r.r.inj $ "TypeError",
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
            , ("message", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj "",
+                 dataDescriptorValue = r.r.r.r.inj $ "",
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
@@ -2716,12 +2715,12 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
            , ("name", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj "URIError",
+                 dataDescriptorValue = r.r.r.r.inj $ "URIError",
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
            , ("message", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj "",
+                 dataDescriptorValue = r.r.r.r.inj $ "",
                  dataDescriptorWritable = True,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
@@ -2756,7 +2755,7 @@ initialState =
         objectInternalProperties        =
            Map.fromList
            [ ("length", PropertyData $ def {
-                 dataDescriptorValue = inj $ Number 0 })
+                 dataDescriptorValue = r.r.r.inj $ Number 0 })
            , ("constructor", PropertyData $ DataDescriptor {
                  dataDescriptorValue = inj functionConstructor,
                  dataDescriptorWritable = True,
@@ -2863,7 +2862,7 @@ initialState =
         objectInternalDelete            = deleteImpl,
         objectInternalDefaultValue      = defaultValueImpl,
         objectInternalDefineOwnProperty = defineOwnPropertyImpl,
-        objectInternalPrimitiveValue    = Just (const $ return (inj (Number 0))),
+        objectInternalPrimitiveValue    = Just (const . return . r.r.inj $ Number 0),
         objectInternalConstruct         = Nothing,
         objectInternalCall              = Nothing,
         objectInternalHasInstance       = Nothing,
@@ -2941,7 +2940,7 @@ initialState =
         objectInternalDelete            = deleteImpl,
         objectInternalDefaultValue      = defaultValueImpl,
         objectInternalDefineOwnProperty = defineOwnPropertyImpl,
-        objectInternalPrimitiveValue    = Just (const $ return (inj (Number 0))),
+        objectInternalPrimitiveValue    = Just . const . return . r.r.inj $ Number 0,
         objectInternalConstruct         = Nothing,
         objectInternalCall              = Nothing,
         objectInternalHasInstance       = Nothing,
@@ -3105,7 +3104,7 @@ initialState =
         objectInternalDelete            = deleteImpl,
         objectInternalDefaultValue      = defaultValueImpl,
         objectInternalDefineOwnProperty = defineOwnPropertyImpl,
-        objectInternalPrimitiveValue    = Just $ stringPrimitiveValueImpl (inj ""),
+        objectInternalPrimitiveValue    = Just . stringPrimitiveValueImpl . Just . r.r.r.r.inj $ "",
         objectInternalConstruct         = Nothing,
         objectInternalCall              = Nothing,
         objectInternalHasInstance       = Nothing,
@@ -3146,7 +3145,7 @@ initialState =
         objectInternalProperties        =
            Map.fromList
            [ ("length", PropertyData $ def {
-                 dataDescriptorValue = inj (Number 1) })
+                 dataDescriptorValue = r.r.r.inj . Number $ 1 })
            , ("prototype", PropertyData $ DataDescriptor {
                  dataDescriptorValue = inj objectPrototypeObject,
                  dataDescriptorWritable = False,
@@ -3243,7 +3242,7 @@ initialState =
         objectInternalDelete            = deleteImpl,
         objectInternalDefaultValue      = defaultValueImpl,
         objectInternalDefineOwnProperty = defineOwnPropertyImpl,
-        objectInternalPrimitiveValue    = Just (const $ return (inj (Number 0))),
+        objectInternalPrimitiveValue    = Just . const . return . r.r.inj $ Number 0,
         objectInternalConstruct         = Just objectConstructorConstructImpl,
         objectInternalCall              = Just objectConstructorCallImpl,
         objectInternalHasInstance       = Nothing,
@@ -3281,7 +3280,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }),
              ("length", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj $ Number 1,
+                 dataDescriptorValue = r.r.r.inj $ Number 1,
                  dataDescriptorWritable = False,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })],
@@ -3326,7 +3325,7 @@ initialState =
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
            , ("length", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj $ Number 1,
+                 dataDescriptorValue = r.r.r.inj $ Number 1,
                  dataDescriptorWritable = False,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
@@ -3363,7 +3362,7 @@ initialState =
         objectInternalProperties        =
            Map.fromList
            [ ("length", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj $ Number 1,
+                 dataDescriptorValue = r.r.r.inj . Number $ 1,
                  dataDescriptorWritable = False,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
@@ -3410,7 +3409,7 @@ initialState =
         objectInternalProperties        =
            Map.fromList
            [ ("length", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj $ Number 1,
+                 dataDescriptorValue = r.r.r.inj $ Number 1,
                  dataDescriptorWritable = False,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
@@ -3450,7 +3449,7 @@ initialState =
         objectInternalProperties        =
            Map.fromList
            [ ("length", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj $ Number 1,
+                 dataDescriptorValue = r.r.r.inj $ Number 1,
                  dataDescriptorWritable = False,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
@@ -3520,7 +3519,7 @@ initialState =
         objectInternalProperties        =
            Map.fromList
            [ ("length", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj $ Number 1,
+                 dataDescriptorValue = r.r.r.inj $ Number 1,
                  dataDescriptorWritable = False,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
@@ -3560,7 +3559,7 @@ initialState =
         objectInternalProperties        =
            Map.fromList
            [ ("length", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj $ Number 1,
+                 dataDescriptorValue = r.r.r.inj $ Number 1,
                  dataDescriptorWritable = False,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
@@ -3600,7 +3599,7 @@ initialState =
         objectInternalProperties        =
            Map.fromList
            [ ("length", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj $ Number 1,
+                 dataDescriptorValue = r.r.r.inj $ Number 1,
                  dataDescriptorWritable = False,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
@@ -3640,7 +3639,7 @@ initialState =
         objectInternalProperties        =
            Map.fromList
            [ ("length", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj $ Number 1,
+                 dataDescriptorValue = r.r.r.inj $ Number 1,
                  dataDescriptorWritable = False,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
@@ -3680,7 +3679,7 @@ initialState =
         objectInternalProperties        =
            Map.fromList
            [ ("length", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj $ Number 1,
+                 dataDescriptorValue = r.r.r.inj $ Number 1,
                  dataDescriptorWritable = False,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
@@ -3720,7 +3719,7 @@ initialState =
         objectInternalProperties        =
            Map.fromList
            [ ("length", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj $ Number 1,
+                 dataDescriptorValue = r.r.r.inj $ Number 1,
                  dataDescriptorWritable = False,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
@@ -3760,7 +3759,7 @@ initialState =
         objectInternalProperties        =
            Map.fromList
            [ ("length", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj $ Number 1,
+                 dataDescriptorValue = r.r.r.inj $ Number 1,
                  dataDescriptorWritable = False,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False })
@@ -3985,7 +3984,7 @@ initialState =
         objectInternalProperties        =
            Map.fromList
            [ ("length", PropertyData $ DataDescriptor {
-                 dataDescriptorValue = inj l,
+                 dataDescriptorValue = r.r.r.inj $ l,
                  dataDescriptorWritable = False,
                  dataDescriptorEnumerable = False,
                  dataDescriptorConfigurable = False }) ],
@@ -4256,7 +4255,7 @@ runJavaScriptT :: (Functor m, Monad m) =>
                   m (Either Value a)
 runJavaScriptT s a = flip State.evalStateT s $ Except.runExceptT a
 
-jsThrow :: (SubType v Value) => v -> JavaScriptM a
+jsThrow :: Value -> JavaScriptM a
 jsThrow v = Except.throwE (inj v)
 
 type JSNullable a = a + Null
@@ -4370,13 +4369,13 @@ negInf = Number ((-1) / 0)
 
 type Base = EnvironmentRecord + Object + Undefined + Number + String + Bool
 
-pattern BaseEnvironmentRecord a = Left a :: Base
-pattern BaseObject a = Right (Left a) :: Base
-pattern BaseUndefined a = Right (Right (Left a)) :: Base
-pattern BaseProperty a = Right (Right (Right a)) :: Base
-pattern BaseNumber a = Right (Right (Right (Left a))) :: Base
-pattern BaseString a = Right (Right (Right (Right (Left a)))) :: Base
-pattern BaseBool a = Right (Right (Right (Right (Right a)))) :: Base
+pattern BaseEnvironmentRecord a = Left a                                  :: Base
+pattern BaseObject a            = Right (Left a)                          :: Base
+pattern BaseUndefined a         = Right (Right (Left a))                  :: Base
+pattern BaseProperty a          = Right (Right (Right a))                 :: Base
+pattern BaseNumber a            = Right (Right (Right (Left a)))          :: Base
+pattern BaseString a            = Right (Right (Right (Right (Left a))))  :: Base
+pattern BaseBool a              = Right (Right (Right (Right (Right a)))) :: Base
 
 data Reference
   = Reference Base String Bool
@@ -4395,12 +4394,12 @@ toPrimitiveBase :: Reference ->
                    (EnvironmentRecord + Object + Undefined)
                    +
                    (Number + String + Bool)
-toPrimitiveBase (Reference (BaseEnvironmentRecord er) _ _) = Left (inj er)
-toPrimitiveBase (Reference (BaseObject o) _ _) = Left (inj o)
-toPrimitiveBase (Reference (BaseUndefined u) _ _) = Left (inj u)
-toPrimitiveBase (Reference (BaseNumber n) _ _) = Right (inj n)
-toPrimitiveBase (Reference (BaseString s) _ _) = Right (inj s)
-toPrimitiveBase (Reference (BaseBool b) _ _) = Right (inj b)
+toPrimitiveBase (Reference (BaseEnvironmentRecord er) _ _) = Left . inj $ er
+toPrimitiveBase (Reference (BaseObject o) _ _) = Left . r.inj $ o
+toPrimitiveBase (Reference (BaseUndefined u) _ _) = Left . r.r.inj $ u
+toPrimitiveBase (Reference (BaseNumber n) _ _) = Right .inj $ n
+toPrimitiveBase (Reference (BaseString s) _ _) = Right . r.inj $ s
+toPrimitiveBase (Reference (BaseBool b) _ _) = Right . r.r.inj $ b
 
 isPropertyReference :: Reference -> Bool
 isPropertyReference ref =
@@ -4412,12 +4411,12 @@ toPropertyReference :: Reference ->
                        (EnvironmentRecord + Undefined)
                        +
                        (Object + Number + String + Bool)
-toPropertyReference (Reference (BaseEnvironmentRecord er) _ _) = Left (inj er)
-toPropertyReference (Reference (BaseUndefined u) _ _) = Left (inj u)
-toPropertyReference (Reference (BaseObject o) _ _) = Right (inj o)
-toPropertyReference (Reference (BaseNumber n) _ _) = Right (inj n)
-toPropertyReference (Reference (BaseString s) _ _) = Right (inj s)
-toPropertyReference (Reference (BaseBool b) _ _) = Right (inj b)
+toPropertyReference (Reference (BaseEnvironmentRecord er) _ _) = Left . inj $ er
+toPropertyReference (Reference (BaseUndefined u) _ _) = Left . r $ u
+toPropertyReference (Reference (BaseObject o) _ _) = Right . inj $ o
+toPropertyReference (Reference (BaseNumber n) _ _) = Right .r.inj $ n
+toPropertyReference (Reference (BaseString s) _ _) = Right .r.r.inj $ s
+toPropertyReference (Reference (BaseBool b) _ _) = Right .r.r.r.inj $ b
 
 isUnresolvableReference :: Reference -> Bool
 isUnresolvableReference ref =
@@ -4431,11 +4430,11 @@ toUnresolvableReference :: Reference ->
                            (EnvironmentRecord + Object + Number + String + Bool)
 toUnresolvableReference (Reference (BaseUndefined u) _ _) = Left u
 toUnresolvableReference (Reference (BaseEnvironmentRecord er) _ _) = Right (inj er)
-toUnresolvableReference (Reference (BaseObject o) _ _) = Right (inj o)
-toUnresolvableReference (Reference (BaseProperty p) _ _) = Right (inj p)
-toUnresolvableReference (Reference (BaseNumber n) _ _) = Right (inj n)
-toUnresolvableReference (Reference (BaseString s) _ _) = Right (inj s)
-toUnresolvableReference (Reference (BaseBool b) _ _) = Right (inj b)
+toUnresolvableReference (Reference (BaseObject o) _ _) = Right (r.inj $ o)
+toUnresolvableReference (Reference (BaseProperty p) _ _) = Right (r.r.inj $ p)
+toUnresolvableReference (Reference (BaseNumber n) _ _) = Right (r.r.inj $ n)
+toUnresolvableReference (Reference (BaseString s) _ _) = Right (r.r.r.inj $ s)
+toUnresolvableReference (Reference (BaseBool b) _ _) = Right (r.r.r.r $ b)
 
 newtype List a
   = List [a]
@@ -4469,9 +4468,9 @@ data Type
   | TypeEnvironmentRecord
   deriving (Eq, Show)
 
-typeOf :: forall v a. (SubType v (ECMA a)) => v -> Type
+typeOf :: ECMA a -> Type
 typeOf v =
-  case (inj v :: ECMA a) of
+  case v of
    ECMAEnvironmentRecord _ -> TypeEnvironmentRecord
    ECMALexicalEnvironment _ -> TypeLexicalEnvironment
    ECMAPropertyIdentifier _ -> TypePropertyIdentifier
@@ -4486,16 +4485,16 @@ typeOf v =
    ECMAValue (ValueString _) -> TypeString
    ECMAValue (ValueNumber _) -> TypeNumber
 
-getValue :: (Functor m, Monad m, SubType v CallValue) =>
-            v -> JavaScriptT m Value
+getValue :: (Functor m, Monad m) =>
+            CallValue -> JavaScriptT m Value
 getValue sub = do
-  case (inj sub :: CallValue) of
+  case sub of
    CallValueValue v -> return v
    CallValueReference ref -> do
      let base = getBase ref
      case toUnresolvableReference ref of
       Left _ -> newReferenceErrorObject
-                (Just . inj $ getReferencedName ref) >>= jsThrow
+                (Just . r.r.r.r.inj $ getReferencedName ref) >>= jsThrow . inj
       Right resolvableBase -> do
         case resolvableBase of
          Right propertyBase -> do
@@ -4504,73 +4503,72 @@ getValue sub = do
               get objectBase (getReferencedName ref)
             Right primitiveBase -> do
               let p = getReferencedName ref
-              o <- toObject (inj primitiveBase)
+              o <- toObject (r.r.r.inj $ primitiveBase)
               mDesc <- getProperty o p
               case mDesc of
-               JSNothing -> return $ inj Undefined
+               JSNothing -> return . r.r.inj $ Undefined
                JSJust (PropertyDescriptor {..}) -> do
                  case toDataDescriptor mDesc of
                   JSJust (DataDescriptor {..}) -> do
                     return dataDescriptorValue
                   JSNothing ->
                    case propertyDescriptorGet of
-                    Nothing -> return $ inj Undefined
+                    Nothing -> return . r.r.inj $ Undefined
                     Just getter -> do
-                      callNative getter (inj primitiveBase) (List [])
+                      callNative getter (r.r.r.inj $ primitiveBase) (List [])
          Left environmentRecordBase -> do
            getBindingValue
              environmentRecordBase
              (getReferencedName ref)
              (isStrictReference ref)
 
-putValue :: (SubType v1 CallValue, SubType v2 Value) =>
-            v1 -> v2 -> JavaScriptM ()
+putValue :: CallValue -> Value -> JavaScriptM ()
 putValue rv w = do
-  case (inj rv :: CallValue) of
-   CallValueValue _ -> newReferenceErrorObject Nothing >>= jsThrow
+  case rv of
+   CallValueValue _ -> newReferenceErrorObject Nothing >>= jsThrow . inj
    CallValueReference ref -> do
      let base = getBase ref
      case toUnresolvableReference ref of
       Left _ -> do
         if isStrictReference ref
           then newReferenceErrorObject
-               (Just . inj $ getReferencedName ref) >>= jsThrow
+               (Just . r.r.r.r.inj $ getReferencedName ref) >>= jsThrow . inj
           else do
           global <- Lens.use globalObject
-          put global (getReferencedName ref) (inj w) False
+          put global (getReferencedName ref) (w) False
       Right resolvableBase -> do
         case resolvableBase of
          Right propertyBase -> do
            case propertyBase of
             Left objectBase -> do
-              put objectBase (getReferencedName ref) (inj w) (isStrictReference ref)
+              put objectBase (getReferencedName ref) (w) (isStrictReference ref)
             Right primitiveBase -> do
               let p = getReferencedName ref
                   throw = isStrictReference ref
-              o <- toObject (inj primitiveBase)
+              o <- toObject (r.r.r.inj $ primitiveBase)
               c <- canPut o p
               if not c
                 then do
                 if throw
-                  then newTypeErrorObject Nothing >>= jsThrow
+                  then newTypeErrorObject Nothing >>= jsThrow . inj
                   else return ()
                 else do
                 ownDesc <- getOwnProperty o p
                 if isDataDescriptor ownDesc
                   then
                   if throw
-                  then newTypeErrorObject Nothing >>= jsThrow
+                  then newTypeErrorObject Nothing >>= jsThrow . inj
                   else return ()
                   else do
                   desc <- getProperty o p
                   case toAccessorDescriptor desc of
                    JSJust (AccessorDescriptor {..}) -> do
                      let JSJust setter = accessorDescriptorSet
-                     call setter (inj primitiveBase) (List [(inj w)])
+                     call setter (r.r.r.inj $ primitiveBase) (List [(inj w)])
                      return ()
                    JSNothing -> do
                      if throw
-                       then newTypeErrorObject Nothing >>= jsThrow
+                       then newTypeErrorObject Nothing >>= jsThrow . inj
                        else return ()
          Left environmentRecordBase -> do
            setMutableBinding
@@ -4594,7 +4592,7 @@ data DataDescriptor
 
 instance Default DataDescriptor where
   def = DataDescriptor {
-    dataDescriptorValue        = inj Undefined,
+    dataDescriptorValue        = r.r.inj $ Undefined,
     dataDescriptorWritable     = False,
     dataDescriptorEnumerable   = False,
     dataDescriptorConfigurable = False }
@@ -4680,7 +4678,7 @@ toDataDescriptor mp =
    JSJust p@(PropertyDescriptor {..}) ->
      if isDataDescriptor mp
      then JSJust $ DataDescriptor {
-       dataDescriptorValue        = maybe (inj Undefined) id propertyDescriptorValue,
+       dataDescriptorValue        = maybe (r.r.inj $ Undefined) id propertyDescriptorValue,
        dataDescriptorWritable     = maybe False id propertyDescriptorWritable,
        dataDescriptorEnumerable   = maybe False id propertyDescriptorEnumerable,
        dataDescriptorConfigurable = maybe False id propertyDescriptorConfigurable }
@@ -4721,7 +4719,7 @@ fromPropertyDescriptor mdesc = do
          o
          "writable"
          def {
-           propertyDescriptorValue = inj <$> propertyDescriptorWritable,
+           propertyDescriptorValue = r.r.r.r.r <$> propertyDescriptorWritable,
            propertyDescriptorWritable = Just True,
            propertyDescriptorEnumerable = Just True,
            propertyDescriptorConfigurable = Just True }
@@ -4766,7 +4764,7 @@ getIdentifierReference :: Maybe LexicalEnvironment -> String -> Bool ->
 getIdentifierReference mLex name strict = do
   case mLex of
    Nothing ->
-     return $ Reference (inj Undefined) name strict
+     return $ Reference (r.r.inj $ Undefined) name strict
    Just lex -> do
      LexicalEnvironmentInternal envRec outer <- Lens.use $ lexicalEnvironmentInternal lex
      exists <- hasBinding envRec name
@@ -4988,7 +4986,7 @@ createMutableBindingDeclarative :: DeclarativeEnvironmentRecord ->
                                    String -> Maybe Bool -> JavaScriptM ()
 createMutableBindingDeclarative envRec n d = do
   let markDel = maybe False id d
-      binding = DeclarativeBindingMutable (inj Undefined) markDel
+      binding = DeclarativeBindingMutable (r.r.inj $ Undefined) markDel
   declarativeEnvironmentRecordInternal envRec .
     internalDeclarativeEnvironmentRecordBinding n ?= binding
 
@@ -4998,7 +4996,7 @@ createMutableBindingObject envRec n d = do
   let bindings = objectEnvironmentRecordBindingObject envRec
       configValue = if d == Just True then True else False
       desc = def {
-        propertyDescriptorValue        = Just (inj Undefined),
+        propertyDescriptorValue        = Just (r.r.inj $ Undefined),
         propertyDescriptorWritable     = Just True,
         propertyDescriptorEnumerable   = Just True,
         propertyDescriptorConfigurable = Just configValue }
@@ -5027,7 +5025,7 @@ setMutableBindingDeclarative envRec n v s = do
        internalDeclarativeEnvironmentRecordBinding n ?= binding
    Just (DeclarativeBindingImmutable {}) ->
      if s
-     then newTypeErrorObject Nothing >>= jsThrow
+     then newTypeErrorObject Nothing >>= jsThrow . inj
      else return ()
 
 setMutableBindingObject :: ObjectEnvironmentRecord ->
@@ -5054,8 +5052,8 @@ getBindingValueDeclarative envRec n s = do
    Nothing -> error "Internal error: getBindingValueDeclarative assert failed"
    Just (DeclarativeBindingImmutable v False) ->
      if not s
-     then return (inj Undefined)
-     else newReferenceErrorObject (Just . inj $ s) >>= jsThrow
+     then return (r.r.inj $ Undefined)
+     else newReferenceErrorObject (Just . r.r.r.r.r $ s) >>= jsThrow . inj
    Just (DeclarativeBindingImmutable v _) -> return v
    Just (DeclarativeBindingMutable v _) -> return v
 
@@ -5067,8 +5065,8 @@ getBindingValueObject envRec n s = do
   if not value
     then do
     if not s
-      then return (inj Undefined)
-      else newReferenceErrorObject (Just . inj $ s) >>= jsThrow
+      then return (r.r.inj $ Undefined)
+      else newReferenceErrorObject (Just . r.r.r.r.r.inj $ s) >>= jsThrow . inj
     else get bindings n
 
 deleteBinding :: EnvironmentRecord -> String -> JavaScriptM Bool
@@ -5110,20 +5108,20 @@ implicitThisValue er = do
 
 implicitThisValueDeclarative :: DeclarativeEnvironmentRecord ->
                                 JavaScriptM Value
-implicitThisValueDeclarative _ = return (inj Undefined)
+implicitThisValueDeclarative _ = return (r.r.inj $ Undefined)
 
 implicitThisValueObject :: ObjectEnvironmentRecord ->
                            JavaScriptM Value
 implicitThisValueObject envRec = do
   if objectEnvironmentRecordProvideThis envRec
-    then return $ inj $ objectEnvironmentRecordBindingObject envRec
-    else return $ inj Undefined
+    then return . inj $ objectEnvironmentRecordBindingObject envRec
+    else return . r.r.inj $ Undefined
 
 createImmutableBindingDeclarative :: DeclarativeEnvironmentRecord ->
                                      String ->
                                      JavaScriptM ()
 createImmutableBindingDeclarative  envRec n = do
-  let binding = DeclarativeBindingImmutable (inj Undefined) False
+  let binding = DeclarativeBindingImmutable (r.r.inj $ Undefined) False
   declarativeEnvironmentRecordInternal envRec .
     internalDeclarativeEnvironmentRecordBinding n ?= binding
 
@@ -5353,9 +5351,9 @@ call o = callInternalOptionalProperty2 o objectInternalCall
 callNative :: (Functor m, Monad m) => InternalCallNativeType m
 callNative o t l = do
   rv <- callInternalOptionalProperty2 o objectInternalCall t l
-  case prj rv of
-   Nothing -> error "Native function can't return references"
-   Just v -> return v
+  case rv of
+   CallValueReference _ -> error "Native function can't return references"
+   CallValueValue v -> return v
 
 hasInstance :: (Functor m, Monad m) => InternalHasInstanceType m
 hasInstance o = callInternalOptionalProperty1 o objectInternalHasInstance
@@ -5448,7 +5446,7 @@ callInternalOptionalProperty o p = do
   oi <- Lens.use $ internalObject o
   case p oi of
    Just op -> op o
-   Nothing -> newTypeErrorObject Nothing >>= jsThrow
+   Nothing -> newTypeErrorObject Nothing >>= jsThrow . inj
 
 callInternalOptionalProperty1 :: (Functor m, Monad m) =>
                                  Object ->
@@ -5460,7 +5458,7 @@ callInternalOptionalProperty1 o p a = do
   oi <- Lens.use $ internalObject o
   case p oi of
    Just op -> op o a
-   Nothing -> newTypeErrorObject Nothing >>= jsThrow
+   Nothing -> newTypeErrorObject Nothing >>= jsThrow . inj
 
 callInternalOptionalProperty2 :: (Functor m, Monad m) =>
                                  Object ->
@@ -5472,7 +5470,7 @@ callInternalOptionalProperty2 o p a b = do
   oi <- Lens.use $ internalObject o
   case p oi of
    Just op -> op o a b
-   Nothing -> newTypeErrorObject Nothing >>= jsThrow
+   Nothing -> newTypeErrorObject Nothing >>= jsThrow . inj
 
 callInternalOptionalProperty3 :: (Functor m, Monad m) =>
                                  Object ->
@@ -5484,7 +5482,7 @@ callInternalOptionalProperty3 o p a b c = do
   oi <- Lens.use $ internalObject o
   case p oi of
    Just op -> op o a b c
-   Nothing -> newTypeErrorObject Nothing >>= jsThrow
+   Nothing -> newTypeErrorObject Nothing >>= jsThrow . inj
 
 getOwnPropertyImpl :: Object -> String -> JavaScriptM (JSMaybe PropertyDescriptor)
 getOwnPropertyImpl o p = do
@@ -5523,13 +5521,13 @@ getImpl :: Object -> String -> JavaScriptM Value
 getImpl o p = do
   mDesc <- getProperty o p
   case mDesc of
-   JSNothing -> return $ inj Undefined
+   JSNothing -> return . r.r.inj $ Undefined
    JSJust desc@(PropertyDescriptor {..}) -> do
      case toDataDescriptor mDesc of
       JSJust DataDescriptor {..} -> return dataDescriptorValue
       JSNothing -> do
         case propertyDescriptorGet of
-         Nothing -> return $ inj Undefined
+         Nothing -> return . r.r.inj $ Undefined
          Just getter -> callNative getter (inj o) (List [])
 
 canPutImpl :: Object -> String -> JavaScriptM Bool
@@ -5569,7 +5567,7 @@ putImpl o p v throw = do
   if not c
     then do
     if throw
-      then newTypeErrorObject Nothing >>= jsThrow
+      then newTypeErrorObject Nothing >>= jsThrow . inj
       else return ()
     else do
     ownDesc <- getOwnProperty o p
@@ -5614,7 +5612,7 @@ deleteImpl o p throw = do
        return True
        else do
        if throw
-         then newTypeErrorObject Nothing >>= jsThrow
+         then newTypeErrorObject Nothing >>= jsThrow . inj
          else return False
 
 data Hint
@@ -5629,9 +5627,9 @@ defaultValueImpl o (Just HintString) = do
   case mc of
    Just c -> do
      str <- call c (inj o) (List [])
-     case prj str of
-      Just p -> return p
-      Nothing -> valueOfBranch
+     case str of
+      CallValuePrimitive p -> return p
+      _ -> valueOfBranch
    Nothing -> valueOfBranch
   where
     valueOfBranch = do
@@ -5642,8 +5640,8 @@ defaultValueImpl o (Just HintString) = do
          val <- call c (inj o) (List [])
          case val of
           CallValuePrimitive p -> return p
-          _ -> newTypeErrorObject Nothing >>= jsThrow
-       Nothing -> newTypeErrorObject Nothing >>= jsThrow
+          _ -> newTypeErrorObject Nothing >>= jsThrow . inj
+       Nothing -> newTypeErrorObject Nothing >>= jsThrow . inj
 
 defaultValueImpl o (Just HintNumber) = do
   valueOf <- get o "valueOf"
@@ -5651,9 +5649,9 @@ defaultValueImpl o (Just HintNumber) = do
   case mc of
    Just c -> do
      val <- call c (inj o) (List [])
-     case prj val of
-      Just p -> return p
-      Nothing -> toStringBranch
+     case val of
+      CallValuePrimitive p -> return p
+      _ -> toStringBranch
    Nothing -> toStringBranch
   where
     toStringBranch = do
@@ -5664,13 +5662,13 @@ defaultValueImpl o (Just HintNumber) = do
          str <- call c (inj o) (List [])
          case str of
           CallValuePrimitive p -> return p
-          _ -> newTypeErrorObject Nothing >>= jsThrow
-       Nothing -> newTypeErrorObject Nothing >>= jsThrow
+          _ -> newTypeErrorObject Nothing >>= jsThrow . inj
+       Nothing -> newTypeErrorObject Nothing >>= jsThrow . inj
 
 defaultValueImpl o Nothing = defaultValueImpl o (Just HintNumber)
 
 functionPrototypeCallImpl :: (Monad m) => InternalCallType m
-functionPrototypeCallImpl _ _ _ = return (inj Undefined)
+functionPrototypeCallImpl _ _ _ = return . r.r.r.inj $ Undefined
 
 newFunctionObject :: Maybe FormalParamList ->
                      FuncBody ->
@@ -5718,7 +5716,7 @@ newFunctionObject mfpl fb scope strict = do
     f
     "length"
     def {
-      propertyDescriptorValue        = Just $ inj (Number $ fromIntegral len),
+      propertyDescriptorValue        = Just . r.r.r.inj . Number . fromIntegral $len,
       propertyDescriptorWritable     = Just False,
       propertyDescriptorEnumerable   = Just False,
       propertyDescriptorConfigurable = Just False }
@@ -5764,7 +5762,7 @@ newFunctionObject mfpl fb scope strict = do
 functionConstructorCallImpl :: (Functor m, Monad m) =>
                                InternalCallType m
 functionConstructorCallImpl f _ args =
-  inj <$>functionConstructorConstructImpl f args
+  r.inj <$> functionConstructorConstructImpl f args
 
 functionConstructorConstructImpl :: (Functor m, Monad m) =>
                                     InternalConstructType m
@@ -5777,15 +5775,15 @@ functionCallImpl f this args = do
   mc <- Lens.use $ internalObject f . internalCode
   result <- case mc of
    Nothing ->
-     return $ Completion CompletionTypeNormal (inj Undefined) Nothing
+     return $ Completion CompletionTypeNormal (Just . r.r.inj $ Undefined) Nothing
    Just c -> do
      fb <- c f
      interpret fb
   popContext
   case result of
    Completion CompletionTypeThrow (Just v) _ -> jsThrow v
-   Completion CompletionTypeReturn (Just v) _ -> return (inj v)
-   _ -> return (inj Undefined)
+   Completion CompletionTypeReturn (Just v) _ -> return . r.inj $ v
+   _ -> return (r.r.r.inj $ Undefined)
 
 functionGetImpl :: (Functor m, Monad m) => InternalGetType m
 functionGetImpl f p = do
@@ -5840,7 +5838,7 @@ newArrayObject as = do
   let properties =
         [ ("length", PropertyData $
                      def { dataDescriptorValue =
-                              inj $ Number (fromIntegral $ length as),
+                              r.r.r.inj . Number . fromIntegral . length $ as,
                            dataDescriptorWritable = True,
                            dataDescriptorEnumerable = True,
                            dataDescriptorConfigurable = True }) ] ++
@@ -5886,7 +5884,7 @@ newArrayObject as = do
 
 arrayConstructorCallImpl :: (Functor m, Monad m) => InternalCallType m
 arrayConstructorCallImpl a _ args =
-  inj <$> arrayConstructorConstructImpl a args
+  r.inj <$> arrayConstructorConstructImpl a args
 
 arrayConstructorConstructImpl :: InternalConstructType m
 arrayConstructorConstructImpl a args = undefined
@@ -5904,10 +5902,10 @@ arrayDefineOwnPropertyImpl a p desc throw = do
        newLen <- toUint32 v
        curLen <- toNumber v
        if fromIntegral newLen /= curLen
-         then newRangeErrorObject Nothing >>= jsThrow
+         then newRangeErrorObject Nothing >>= jsThrow . inj
          else do
          let newLenDesc = desc {
-               propertyDescriptorValue = Just (inj $ Number $ fromIntegral newLen) }
+               propertyDescriptorValue = Just . r.r.r.inj . Number . fromIntegral $ newLen }
          if fromIntegral newLen >= oldLen
            then do
            defineOwnPropertyImpl a "length" newLenDesc throw
@@ -5935,7 +5933,7 @@ arrayDefineOwnPropertyImpl a p desc throw = do
     iai <- isArrayIndex p
     if iai
       then do
-      index <- toUint32 p
+      index <- toUint32 . r.r.r.r.inj $ p
       if fromIntegral index >= oldLen && dataDescriptorWritable oldLenDesc == False
         then reject
         else do
@@ -5945,7 +5943,7 @@ arrayDefineOwnPropertyImpl a p desc throw = do
           else do
           when (fromIntegral index >= oldLen) $ void $ do
             let oldLenDesc' = oldLenDesc {
-                  dataDescriptorValue = inj $ Number $ fromIntegral (index + 1) }
+                  dataDescriptorValue = r.r.r.inj . Number . fromIntegral $ (index + 1) }
             defineOwnPropertyImpl a "length" (fromDataDescriptor oldLenDesc') False
           return True
       else defineOwnPropertyImpl a p desc throw
@@ -5956,7 +5954,7 @@ arrayDefineOwnPropertyImpl a p desc throw = do
       if fromIntegral newLen < oldLen
         then do
         let oldLen' = oldLen - 1
-        deleteSucceeded <- toString oldLen >>= \s -> delete a s False
+        deleteSucceeded <- (toString . r.r.r.inj $ oldLen) >>= \s -> delete a s False
         if (not deleteSucceeded)
           then do
           let writable =
@@ -5964,7 +5962,7 @@ arrayDefineOwnPropertyImpl a p desc throw = do
                 then Just False
                 else propertyDescriptorWritable newLenDesc
               newLenDesc' = newLenDesc {
-                propertyDescriptorValue = Just $ inj (oldLen' + 1),
+                propertyDescriptorValue = Just . r.r.r.inj $ (oldLen' + 1),
                 propertyDescriptorWritable = writable }
           defineOwnPropertyImpl a "length" newLenDesc' False
           reject
@@ -5975,13 +5973,13 @@ arrayDefineOwnPropertyImpl a p desc throw = do
     reject :: JavaScriptM Bool
     reject =
       if throw
-      then newTypeErrorObject Nothing >>= jsThrow
+      then newTypeErrorObject Nothing >>= jsThrow . inj
       else return False
 
 isArrayIndex :: String -> JavaScriptM Bool
 isArrayIndex p = do
-  ui <- toUint32 p
-  c <- toString (Number $ fromIntegral ui)
+  ui <- toUint32 . r.r.r.r.inj $ p
+  c <- toString . r.r.r.inj . Number . fromIntegral $ ui
   return $ c == p && ui /= 2 ^ (32 :: Int) - 1
 
 newBooleanObject :: Value ->
@@ -6004,7 +6002,7 @@ newBooleanObject v = do
         objectInternalDelete            = deleteImpl,
         objectInternalDefaultValue      = defaultValueImpl,
         objectInternalDefineOwnProperty = defineOwnPropertyImpl,
-        objectInternalPrimitiveValue    = Just $ const $ return $ inj (toBoolean v),
+        objectInternalPrimitiveValue    = Just . const . return . r.r.r.r.inj . toBoolean $ v,
         objectInternalConstruct         = Nothing,
         objectInternalCall              = Nothing,
         objectInternalHasInstance       = Nothing,
@@ -6023,15 +6021,15 @@ booleanConstructorCallImpl :: (Functor m, Monad m) =>
                               InternalCallType m
 booleanConstructorCallImpl _ _ (List vs) = do
   case vs of
-   (v:_) -> return . inj $ toBoolean v
-   _ -> return (inj False)
+   (v:_) -> return . r.r.r.r.r.r.inj . toBoolean $ v
+   _ -> return . r.r.r.r.r.r.inj $ False
 
 booleanConstructorConstructImpl :: (Functor m, Monad m) =>
                                    InternalConstructType m
 booleanConstructorConstructImpl _ (List vs) = do
   case vs of
    (v:_) -> newBooleanObject v
-   _ -> newBooleanObject (inj False)
+   _ -> newBooleanObject . r.r.r.r.r.inj $ False
 
 newNumberObject :: Maybe Value ->
                    JavaScriptM Object
@@ -6054,7 +6052,7 @@ newNumberObject mv = do
         objectInternalDelete            = deleteImpl,
         objectInternalDefaultValue      = defaultValueImpl,
         objectInternalDefineOwnProperty = defineOwnPropertyImpl,
-        objectInternalPrimitiveValue    = Just $ const $ return $ inj nv,
+        objectInternalPrimitiveValue    = Just . const . return . r.r.inj $ nv,
         objectInternalConstruct         = Nothing,
         objectInternalCall              = Nothing,
         objectInternalHasInstance       = Nothing,
@@ -6073,8 +6071,8 @@ numberConstructorCallImpl :: (Functor m, Monad m) =>
                              InternalCallType m
 numberConstructorCallImpl _ _ (List vs) = do
   case vs of
-   (v:_) -> inj <$> toNumber v
-   _ -> return . inj $ Number 0
+   (v:_) -> r.r.r.r.inj <$> toNumber v
+   _ -> return . r.r.r.r.inj . Number $ 0
 
 numberConstructorConstructImpl :: (Functor m, Monad m) =>
                                   InternalConstructType m
@@ -6093,7 +6091,7 @@ newErrorObject mv = do
                  Just v -> do
                    s <- toString v
                    return [ ("message", PropertyData $ DataDescriptor {
-                                dataDescriptorValue          = inj s,
+                                dataDescriptorValue          = r.r.r.r.inj $ s,
                                 dataDescriptorWritable       = False,
                                 dataDescriptorEnumerable     = False,
                                 dataDescriptorConfigurable   = False }) ]
@@ -6131,7 +6129,7 @@ newErrorObject mv = do
 errorConstructorCallImpl :: (Functor m, Monad m) =>
                             InternalCallType m
 errorConstructorCallImpl e _ args = do
-  inj <$> errorConstructorConstructImpl e args
+  r.inj <$> errorConstructorConstructImpl e args
 
 errorConstructorConstructImpl :: (Functor m, Monad m) =>
                                  InternalConstructType m
@@ -6153,12 +6151,12 @@ errorPrototypeToStringCallImpl _ v _ = do
               ValueUndefined _ -> return ""
               _ -> toString msg
      if null name'
-       then return (inj msg')
+       then return (r.r.r.r.r.inj $ msg')
        else
        if null msg'
-       then return (inj name')
-       else return (inj $ name' ++ ": " ++ msg')
-   _ -> newTypeErrorObject Nothing >>= jsThrow
+       then return (r.r.r.r.r.inj $ name')
+       else return (r.r.r.r.r.inj $ name' ++ ": " ++ msg')
+   _ -> newTypeErrorObject Nothing >>= jsThrow . inj
 
 newEvalErrorObject :: Maybe Value -> JavaScriptM Object
 newEvalErrorObject mv = do
@@ -6169,7 +6167,7 @@ newEvalErrorObject mv = do
                  Just v -> do
                    s <- toString v
                    return [ ("message", PropertyData $ DataDescriptor {
-                                dataDescriptorValue          = inj s,
+                                dataDescriptorValue          = r.r.r.r.inj $ s,
                                 dataDescriptorWritable       = False,
                                 dataDescriptorEnumerable     = False,
                                 dataDescriptorConfigurable   = False }) ]
@@ -6207,7 +6205,7 @@ newEvalErrorObject mv = do
 evalErrorConstructorCallImpl :: (Functor m, Monad m) =>
                                 InternalCallType m
 evalErrorConstructorCallImpl e _ args = do
-  inj <$> evalErrorConstructorConstructImpl e args
+  r.inj <$> evalErrorConstructorConstructImpl e args
 
 evalErrorConstructorConstructImpl :: (Functor m, Monad m) =>
                                      InternalConstructType m
@@ -6225,7 +6223,7 @@ newRangeErrorObject mv = do
                  Just v -> do
                    s <- toString v
                    return [ ("message", PropertyData $ DataDescriptor {
-                                dataDescriptorValue          = inj s,
+                                dataDescriptorValue          = r.r.r.r.inj $ s,
                                 dataDescriptorWritable       = False,
                                 dataDescriptorEnumerable     = False,
                                 dataDescriptorConfigurable   = False }) ]
@@ -6263,7 +6261,7 @@ newRangeErrorObject mv = do
 rangeErrorConstructorCallImpl :: (Functor m, Monad m) =>
                                  InternalCallType m
 rangeErrorConstructorCallImpl e _ args = do
-  inj <$> rangeErrorConstructorConstructImpl e args
+  r.inj <$> rangeErrorConstructorConstructImpl e args
 
 rangeErrorConstructorConstructImpl :: (Functor m, Monad m) =>
                                       InternalConstructType m
@@ -6281,7 +6279,7 @@ newReferenceErrorObject mv = do
                  Just v -> do
                    s <- toString v
                    return [ ("message", PropertyData $ DataDescriptor {
-                                dataDescriptorValue          = inj s,
+                                dataDescriptorValue          = r.r.r.r.inj $ s,
                                 dataDescriptorWritable       = False,
                                 dataDescriptorEnumerable     = False,
                                 dataDescriptorConfigurable   = False }) ]
@@ -6319,7 +6317,7 @@ newReferenceErrorObject mv = do
 referenceErrorConstructorCallImpl :: (Functor m, Monad m) =>
                                      InternalCallType m
 referenceErrorConstructorCallImpl e _ args = do
-  inj <$> referenceErrorConstructorConstructImpl e args
+  r.inj <$> referenceErrorConstructorConstructImpl e args
 
 referenceErrorConstructorConstructImpl :: (Functor m, Monad m) =>
                                           InternalConstructType m
@@ -6337,7 +6335,7 @@ newSyntaxErrorObject mv = do
                  Just v -> do
                    s <- toString v
                    return [ ("message", PropertyData $ DataDescriptor {
-                                dataDescriptorValue          = inj s,
+                                dataDescriptorValue          = r.r.r.r.inj $ s,
                                 dataDescriptorWritable       = False,
                                 dataDescriptorEnumerable     = False,
                                 dataDescriptorConfigurable   = False }) ]
@@ -6375,7 +6373,7 @@ newSyntaxErrorObject mv = do
 syntaxErrorConstructorCallImpl :: (Functor m, Monad m) =>
                                   InternalCallType m
 syntaxErrorConstructorCallImpl e _ args = do
-  inj <$> syntaxErrorConstructorConstructImpl e args
+  r.inj <$> syntaxErrorConstructorConstructImpl e args
 
 syntaxErrorConstructorConstructImpl :: (Functor m, Monad m) =>
                                        InternalConstructType m
@@ -6393,7 +6391,7 @@ newTypeErrorObject mv = do
                  Just v -> do
                    s <- toString v
                    return [ ("message", PropertyData $ DataDescriptor {
-                                dataDescriptorValue          = inj s,
+                                dataDescriptorValue          = r.r.r.r.inj $ s,
                                 dataDescriptorWritable       = False,
                                 dataDescriptorEnumerable     = False,
                                 dataDescriptorConfigurable   = False }) ]
@@ -6431,7 +6429,7 @@ newTypeErrorObject mv = do
 typeErrorConstructorCallImpl :: (Functor m, Monad m) =>
                                 InternalCallType m
 typeErrorConstructorCallImpl e _ args = do
-  inj <$> typeErrorConstructorConstructImpl e args
+  r.inj <$> typeErrorConstructorConstructImpl e args
 
 typeErrorConstructorConstructImpl :: (Functor m, Monad m) =>
                                      InternalConstructType m
@@ -6449,7 +6447,7 @@ newUriErrorObject mv = do
                  Just v -> do
                    s <- toString v
                    return [ ("message", PropertyData $ DataDescriptor {
-                                dataDescriptorValue          = inj s,
+                                dataDescriptorValue          = r.r.r.r.inj $ s,
                                 dataDescriptorWritable       = False,
                                 dataDescriptorEnumerable     = False,
                                 dataDescriptorConfigurable   = False }) ]
@@ -6487,7 +6485,7 @@ newUriErrorObject mv = do
 uriErrorConstructorCallImpl :: (Functor m, Monad m) =>
                                InternalCallType m
 uriErrorConstructorCallImpl e _ args = do
-  inj <$> uriErrorConstructorConstructImpl e args
+  r.inj <$> uriErrorConstructorConstructImpl e args
 
 uriErrorConstructorConstructImpl :: (Functor m, Monad m) =>
                                     InternalConstructType m
@@ -6535,8 +6533,8 @@ newStringObject mv = do
 stringConstructorCallImpl :: (Functor m, Monad m) => InternalCallType m
 stringConstructorCallImpl s _ (List ss) = do
   case ss of
-   (s:_) -> inj <$> toString s
-   _ -> return (inj "")
+   (s:_) -> r.r.r.r.r.inj <$> toString s
+   _ -> return . r.r.r.r.r.inj $ ""
 
 stringConstructorConstructImpl :: (Functor m, Monad m) =>
                                   InternalConstructType m
@@ -6552,19 +6550,19 @@ stringGetOwnPropertyImpl s p = do
   case desc of
    JSJust d -> return $ JSJust d
    JSNothing -> do
-     ns <- toInteger p >>= toString . Number . fromIntegral . abs
+     ns <- (toInteger . r.r.r.r.inj $ p) >>= toString . r.r.r.inj . Number . fromIntegral . abs
      if not (ns == p)
-       then return (inj Undefined)
+       then return . r.inj $ Undefined
        else do
        PrimitiveString str <- primitiveValue s
-       index <- toInteger p
+       index <- toInteger . r.r.r.r.inj $ p
        let len = length str
        if fromIntegral len <= index
-         then return (inj Undefined)
+         then return . r.inj $ Undefined
          else do
          let resultStr = [str !! fromInteger index]
          return $ JSJust def {
-           propertyDescriptorValue        = Just (inj resultStr),
+           propertyDescriptorValue        = Just (r.r.r.r.inj $ resultStr),
            propertyDescriptorWritable     = Just False,
            propertyDescriptorEnumerable   = Just True,
            propertyDescriptorConfigurable = Just False }
@@ -6574,8 +6572,8 @@ stringPrimitiveValueImpl :: (Functor m, Monad m) =>
                             Maybe Value -> InternalPrimitiveValueType m
 stringPrimitiveValueImpl mv _ = do
   case mv of
-   Just v -> inj <$> toString v
-   Nothing -> return (inj "")
+   Just v -> r.r.r.inj <$> toString v
+   Nothing -> return . r.r.r.inj $ ""
 
 regExpMatchImpl = undefined
 
@@ -6595,7 +6593,7 @@ createArgumentsObject func (List names) (List args) env strict = do
     obj
     "length"
     (def {
-        propertyDescriptorValue = Just (inj (Number (fromIntegral len))),
+        propertyDescriptorValue = Just . r.r.r.inj . Number . fromIntegral $ len,
         propertyDescriptorWritable = Just True,
         propertyDescriptorEnumerable = Just False,
         propertyDescriptorConfigurable = Just True })
@@ -6620,10 +6618,11 @@ newObjectObject mv =
      case v of
       ValueObject o -> do
         return o
-      _ ->
-        if typeOf v == TypeString ||
-           typeOf v == TypeBoolean ||
-           typeOf v == TypeNumber
+      _ -> do
+        let t = typeOf . r.r.r.r.r.r.r.inj $ v
+        if t == TypeString ||
+           t == TypeBoolean ||
+           t == TypeNumber
         then toObject v
         else createObject
    _ -> createObject
@@ -6665,10 +6664,10 @@ objectConstructorCallImpl :: (Functor m, Monad m) =>
                              InternalCallType m
 objectConstructorCallImpl o _ lvs@(List vs) =
   case vs of
-   (ValueNull _:_) -> inj <$> objectConstructorConstructImpl o lvs
-   (ValueUndefined _:_) -> inj <$> objectConstructorConstructImpl o lvs
-   [] -> inj <$> objectConstructorConstructImpl o lvs
-   (v:_) -> inj <$> toObject v
+   (ValueNull _:_) -> r.inj <$> objectConstructorConstructImpl o lvs
+   (ValueUndefined _:_) -> r.inj <$> objectConstructorConstructImpl o lvs
+   [] -> r.inj <$> objectConstructorConstructImpl o lvs
+   (v:_) -> r.inj <$> toObject v
 
 objectConstructorConstructImpl :: (Functor m, Monad m) =>
                                   InternalConstructType m
@@ -6691,7 +6690,7 @@ defineOwnPropertyImpl o p desc throw = do
        let dp = PropertyData
                 DataDescriptor {
                   dataDescriptorValue        =
-                     maybe (inj Undefined) id (propertyDescriptorValue desc),
+                     maybe (r.r.inj $ Undefined) id (propertyDescriptorValue desc),
                   dataDescriptorWritable     =
                     maybe False id (propertyDescriptorWritable desc),
                   dataDescriptorEnumerable   =
@@ -6715,28 +6714,28 @@ defineOwnPropertyImpl o p desc throw = do
    (JSJust current, _) -> do
      if (propertyDescriptorValue desc == Nothing ||
          (sameValue <$>
-          propertyDescriptorValue desc <*>
-          propertyDescriptorValue current) == Just True) &&
+          (inj <$> propertyDescriptorValue desc) <*>
+          (inj <$> propertyDescriptorValue current)) == Just True) &&
         (propertyDescriptorGet desc == Nothing ||
          (sameValue <$>
-          propertyDescriptorGet desc <*>
-          propertyDescriptorGet current) == Just True) &&
+          (inj <$> propertyDescriptorGet desc) <*>
+          (inj <$> propertyDescriptorGet current)) == Just True) &&
         (propertyDescriptorSet desc == Nothing ||
          (sameValue <$>
-          propertyDescriptorSet desc <*>
-          propertyDescriptorSet current) == Just True) &&
+          (inj <$> propertyDescriptorSet desc) <*>
+          (inj <$> propertyDescriptorSet current)) == Just True) &&
         (propertyDescriptorWritable desc == Nothing ||
          (sameValue <$>
-          propertyDescriptorWritable desc <*>
-          propertyDescriptorWritable current) == Just True) &&
+          (r.r.r.r.r.inj <$> propertyDescriptorWritable desc) <*>
+          (r.r.r.r.r.inj <$> propertyDescriptorWritable current)) == Just True) &&
         (propertyDescriptorEnumerable desc == Nothing ||
          (sameValue <$>
-          propertyDescriptorEnumerable desc <*>
-          propertyDescriptorEnumerable current) == Just True) &&
+          (r.r.r.r.r.inj <$> propertyDescriptorEnumerable desc) <*>
+          (r.r.r.r.r.inj <$> propertyDescriptorEnumerable current)) == Just True) &&
         (propertyDescriptorConfigurable desc == Nothing ||
          (sameValue <$>
-          propertyDescriptorConfigurable desc <*>
-          propertyDescriptorConfigurable current) == Just True)
+          (r.r.r.r.r.inj <$> propertyDescriptorConfigurable desc) <*>
+          (r.r.r.r.r.inj <$> propertyDescriptorConfigurable current)) == Just True)
        then return True
        else
        if (propertyDescriptorConfigurable current == Just False)
@@ -6754,7 +6753,7 @@ defineOwnPropertyImpl o p desc throw = do
   where
     reject =
       if throw
-      then newTypeErrorObject Nothing >>= jsThrow
+      then newTypeErrorObject Nothing >>= jsThrow . inj
       else return False
     checkDescriptor current = do
       if isGenericDescriptor (JSJust desc)
@@ -6792,11 +6791,11 @@ defineOwnPropertyImpl o p desc throw = do
              then do
              case (propertyDescriptorSet desc,
                    propertyDescriptorSet current) of
-              (Just ds, Just cs) | not $ sameValue ds cs -> reject
+              (Just ds, Just cs) | not $ sameValue (inj ds) (inj cs) -> reject
               _ -> do
                 case (propertyDescriptorSet desc,
                       propertyDescriptorGet current) of
-                 (Just dg, Just cg) | not $ sameValue dg cg -> reject
+                 (Just dg, Just cg) | not $ sameValue (inj dg) (inj cg) -> reject
                  _ -> setValue
              else setValue
     setValue = do
@@ -6850,17 +6849,15 @@ defineOwnPropertyImpl o p desc throw = do
                 (propertyDescriptorConfigurable desc) }
       return True
 
-toPrimitive :: (SubType v Value) =>
-               v -> Maybe Hint -> JavaScriptM Primitive
+toPrimitive :: Value -> Maybe Hint -> JavaScriptM Primitive
 toPrimitive v mpt =
-  case inj v of
+  case v of
    ValueObject o -> defaultValue o mpt
    ValuePrimitive p -> return p
 
-toBoolean :: (SubType v Value) =>
-             v -> Bool
+toBoolean :: Value -> Bool
 toBoolean v =
-  case (inj v :: Value) of
+  case v of
    (ValueUndefined _) -> False
    (ValueNull _) -> False
    (ValueBool b) -> b
@@ -6871,10 +6868,9 @@ toBoolean v =
    (ValueString s) -> not $ null s
    (ValueObject _) -> True
 
-toNumber :: (SubType v Value) =>
-            v -> JavaScriptM Number
+toNumber :: Value -> JavaScriptM Number
 toNumber v =
-  case (inj v :: Value) of
+  case v of
    ValueUndefined _ -> return nan
    ValueNull _ -> return $ Number 0
    ValueBool b -> return $ if b then Number 1 else Number 0
@@ -6883,18 +6879,16 @@ toNumber v =
      case parseString s of
       Just d -> return $ Number d
       Nothing -> return nan
-   ValueObject _ -> toPrimitive v (Just HintNumber) >>= toNumber
+   ValueObject _ -> toPrimitive v (Just HintNumber) >>= toNumber . r
 
-toInteger :: (SubType v Value) =>
-             v -> JavaScriptM Integer
+toInteger :: Value -> JavaScriptM Integer
 toInteger v = do
   number <- toNumber v
   if isNaN number
     then return 0
     else return $ floor (signum number) * floor (abs number)
 
-toInt32 :: (SubType v Value) =>
-           v -> JavaScriptM Int32
+toInt32 :: Value -> JavaScriptM Int32
 toInt32 v = do
   number <- toNumber v
   if isNaN number || isInfinite number || number == Number 0
@@ -6906,8 +6900,7 @@ toInt32 v = do
       then return $ fromInteger $ int32bit - 2 ^ (32 :: Int)
       else return $ fromInteger int32bit
 
-toUint32 :: (SubType v Value) =>
-            v -> JavaScriptM UInt32
+toUint32 :: Value -> JavaScriptM UInt32
 toUint32 v = do
   number <- toNumber v
   if isNaN number || isInfinite number || number == Number 0
@@ -6917,8 +6910,7 @@ toUint32 v = do
         int32bit = posInt `mod` 2 ^ (32 :: Int)
     return $ fromInteger int32bit
 
-toUint16 :: (SubType v Value) =>
-            v -> JavaScriptM UInt16
+toUint16 :: Value -> JavaScriptM UInt16
 toUint16 v = do
   number <- toNumber v
   if isNaN number || isInfinite number || number == Number 0
@@ -6926,10 +6918,9 @@ toUint16 v = do
     else do
     let posInt = floor (signum number) * floor (abs number)
         int16bit = posInt `mod` 2 ^ (16 :: Int)
-    return $ fromInteger int16bit
+    return . fromInteger $ int16bit
 
-primitiveToString :: (SubType v Primitive) =>
-                     v -> String
+primitiveToString :: Primitive -> String
 primitiveToString p =
   case (inj p :: Primitive) of
    PrimitiveUndefined _ -> "undefined"
@@ -6938,33 +6929,30 @@ primitiveToString p =
    PrimitiveNumber (Number n) -> show n
    PrimitiveString s -> s
 
-toString :: (SubType v Value) =>
-            v -> JavaScriptM String
-toString v =
-  case (inj v :: Value) of
-   ValuePrimitive p -> return $ primitiveToString p
-   ValueObject _ -> toPrimitive v (Just HintString) >>= toString
+toString :: Value -> JavaScriptM String
+toString (ValuePrimitive p) = return $ primitiveToString p
+toString v@(ValueObject _) = toPrimitive v (Just HintString) >>= toString . r
 
 toObject :: Value -> JavaScriptM Object
 toObject v =
   case v of
-   ValueUndefined _ -> newTypeErrorObject Nothing >>= jsThrow
-   ValueNull _ -> newTypeErrorObject Nothing >>= jsThrow
-   ValueBool b -> newBooleanObject (inj b)
-   ValueNumber n -> newNumberObject (inj n)
-   ValueString s -> newStringObject (inj s)
+   ValueUndefined _ -> newTypeErrorObject Nothing >>= jsThrow . inj
+   ValueNull _ -> newTypeErrorObject Nothing >>= jsThrow . inj
+   ValueBool b -> newBooleanObject . r.r.r.r.r.inj $ b
+   ValueNumber n -> newNumberObject . Just . r.r.r.inj $ n
+   ValueString s -> newStringObject . Just . r.r.r.r.inj $ s
    ValueObject o -> return o
 
 checkObjectCoercible :: Value -> JavaScriptM ()
 checkObjectCoercible v = void $ toObjectCoercible v
 
 toObjectCoercible :: Value -> JavaScriptM (Object + Number + String + Bool)
-toObjectCoercible (ValueUndefined _) = newTypeErrorObject Nothing >>= jsThrow
-toObjectCoercible (ValueNull _) = newTypeErrorObject Nothing >>= jsThrow
-toObjectCoercible (ValueObject o) = return $ inj o
-toObjectCoercible (ValueNumber n) = return $ inj n
-toObjectCoercible (ValueString s) = return $ inj s
-toObjectCoercible (ValueBool b) = return $ inj b
+toObjectCoercible (ValueUndefined _) = newTypeErrorObject Nothing >>= jsThrow . inj
+toObjectCoercible (ValueNull _) = newTypeErrorObject Nothing >>= jsThrow . inj
+toObjectCoercible (ValueObject o) = return . inj $ o
+toObjectCoercible (ValueNumber n) = return . r. inj $ n
+toObjectCoercible (ValueString s) = return . r.r.inj $ s
+toObjectCoercible (ValueBool b) = return . r.r.r $ b
 
 isCallable :: Value -> JavaScriptM Bool
 isCallable v = isJust <$> toCallable v
@@ -6977,10 +6965,9 @@ toCallable (ValueObject o) = do
     else return Nothing
 toCallable _ = return Nothing
 
-sameValue :: (SubType v1 Value, SubType v2 Value) =>
-             v1 -> v2 -> Bool
+sameValue :: Value -> Value -> Bool
 sameValue x y = do
-  case (inj x :: Value, inj y :: Value) of
+  case (x, y) of
    (ValueUndefined _, ValueUndefined _) -> True
    (ValueNull _, ValueNull _) -> True
    (ValueNumber (Number nx), ValueNumber (Number ny)) ->
@@ -6999,10 +6986,9 @@ sameValue x y = do
    (ValueObject ox, ValueObject oy) -> ox == oy
    _ -> False
 
-compare :: (SubType v1 Value, SubType v2 Value) =>
-           v1 -> v2 -> JavaScriptM Bool
+compare :: Value -> Value -> JavaScriptM Bool
 compare x y = do
-  case (inj x :: Value, inj y :: Value) of
+  case (x, y) of
    (ValueUndefined _, ValueUndefined _) -> return True
    (ValueNull _, ValueNull _) -> return True
    (ValueNumber nx, ValueNumber ny) -> return (nx == ny)
@@ -7013,28 +6999,28 @@ compare x y = do
    (ValueUndefined _, ValueNull _) -> return True
    (ValueNumber nx, ValueString sy) -> do
      ny <- toNumber y
-     compare nx ny
+     compare (r.r.r.inj $ nx) (r.r.r.inj $ ny)
    (ValueString sx, ValueNumber ny) -> do
      nx <- toNumber x
-     compare nx ny
+     compare (r.r.r.inj $ nx) (r.r.r.inj $ ny)
    (ValueBool bx, _) -> do
-     nx <- toNumber bx
-     compare nx y
+     nx <- toNumber . r.r.r.r.r $ bx
+     compare (r.r.r.inj $ nx) y
    (_, ValueBool by) -> do
-     ny <- toNumber by
-     compare x ny
+     ny <- toNumber . r.r.r.r.r $ by
+     compare x (r.r.r.inj $ ny)
    (ValueString sx, ValueObject oy) -> do
-     py <- toPrimitive oy Nothing
-     compare sx py
+     py <- toPrimitive (inj oy) Nothing
+     compare (r.r.r.r.inj $ sx) (r py)
    (ValueNumber nx, ValueObject oy) -> do
-     py <- toPrimitive oy Nothing
-     compare nx py
+     py <- toPrimitive (inj oy) Nothing
+     compare (r.r.r.inj $ nx) (r py)
    (ValueObject ox, ValueString sy) -> do
-     px <- toPrimitive ox Nothing
-     compare px sy
+     px <- toPrimitive (inj ox) Nothing
+     compare (r px) (r.r.r.r.inj $ sy)
    (ValueObject ox, ValueNumber ny) -> do
-     px <- toPrimitive ox Nothing
-     compare px ny
+     px <- toPrimitive (inj ox) Nothing
+     compare (r px) (r.r.r.inj $ ny)
    _ -> return False
 
 compareStrict :: Value -> Value -> Bool
@@ -7063,25 +7049,23 @@ compareLess x y leftFirst = do
    (PrimitiveString sx, PrimitiveString sy) -> do
      return $ JSJust (sx < sy)
    _ -> do
-    nx <- toNumber px
-    ny <- toNumber py
+    nx <- toNumber . r $ px
+    ny <- toNumber .r $ py
     if isNaN nx || isNaN ny
       then return JSNothing
       else return $ JSJust (nx < ny)
 
-operatorPlus :: (SubType v1 CallValue, SubType v2 CallValue) =>
-                v1 -> v2 -> JavaScriptM Value
+operatorPlus :: CallValue -> CallValue -> JavaScriptM Value
 operatorPlus lref rref = do
   lval <- getValue lref
   rval <- getValue rref
   lprim <- toPrimitive lval Nothing
   rprim <- toPrimitive rval Nothing
-  if typeOf lprim == TypeString || typeOf rprim == TypeString
-    then liftM2 (\l r -> inj $ l ++ r) (toString lprim) (toString rprim)
-    else liftM2 (\l r -> inj $ l + r) (toNumber lprim) (toNumber rprim)
+  if (typeOf . r.r.r.r.r.r.r.r $ lprim) == TypeString || (typeOf . r.r.r.r.r.r.r.r $ rprim) == TypeString
+    then liftM2 (\lv rv -> r.r.r.r.inj $ lv ++ rv) (toString . r $ lprim) (toString . r $ rprim)
+    else liftM2 (\lv rv -> r.r.r.inj $ lv + rv) (toNumber . r $ lprim) (toNumber . r $ rprim)
 
-operatorMinus :: (SubType v1 CallValue, SubType v2 CallValue) =>
-                 v1 -> v2 -> JavaScriptM Number
+operatorMinus :: CallValue -> CallValue -> JavaScriptM Number
 operatorMinus lref rref = do
   lval <- getValue lref
   rval <- getValue rref
@@ -7089,8 +7073,7 @@ operatorMinus lref rref = do
   rnum <- toNumber rval
   return $ lnum - rnum
 
-operatorMult :: (SubType v1 CallValue, SubType v2 CallValue) =>
-                v1 -> v2 -> JavaScriptM Number
+operatorMult :: CallValue -> CallValue -> JavaScriptM Number
 operatorMult left right = do
   leftValue <- getValue left
   rightValue <- getValue right
@@ -7098,8 +7081,7 @@ operatorMult left right = do
   rightNum <- toNumber rightValue
   return $ leftNum * rightNum
 
-operatorDiv :: (SubType v1 CallValue, SubType v2 CallValue) =>
-               v1 -> v2 -> JavaScriptM Number
+operatorDiv :: CallValue -> CallValue -> JavaScriptM Number
 operatorDiv left right = do
   leftValue <- getValue left
   rightValue <- getValue right
@@ -7107,8 +7089,7 @@ operatorDiv left right = do
   rightNum <- toNumber rightValue
   return $ leftNum / rightNum
 
-operatorMod :: (SubType v1 CallValue, SubType v2 CallValue) =>
-               v1 -> v2 -> JavaScriptM Number
+operatorMod :: CallValue -> CallValue -> JavaScriptM Number
 operatorMod left right = do
   leftValue <- getValue left
   rightValue <- getValue right
@@ -7116,8 +7097,7 @@ operatorMod left right = do
   rightNum <- toNumber rightValue
   return $ leftNum `mod'` rightNum
 
-operatorLeftShift :: (SubType v1 CallValue, SubType v2 CallValue) =>
-                     v1 -> v2 -> JavaScriptM Number
+operatorLeftShift :: CallValue -> CallValue -> JavaScriptM Number
 operatorLeftShift left right = do
   lval <- getValue left
   rval <- getValue right
@@ -7126,8 +7106,7 @@ operatorLeftShift left right = do
   let shiftCount = fromInteger . Prelude.toInteger $ rnum .&. 0x1F
   return $ Number $ fromIntegral $ shiftL lnum shiftCount
 
-operatorSignedRightShift :: (SubType v1 CallValue, SubType v2 CallValue) =>
-                            v1 -> v2 -> JavaScriptM Number
+operatorSignedRightShift :: CallValue -> CallValue -> JavaScriptM Number
 operatorSignedRightShift left right = do
   lval <- getValue left
   rval <- getValue right
@@ -7136,8 +7115,7 @@ operatorSignedRightShift left right = do
   let shiftCount = fromInteger . Prelude.toInteger $ rnum .&. 0x1F
   return $ Number $ fromIntegral $ shiftR lnum shiftCount
 
-operatorUnsignedRightShift :: (SubType v1 CallValue, SubType v2 CallValue) =>
-                              v1 -> v2 -> JavaScriptM Number
+operatorUnsignedRightShift :: CallValue -> CallValue -> JavaScriptM Number
 operatorUnsignedRightShift left right = do
   lval <- getValue left
   rval <- getValue right
@@ -7146,8 +7124,7 @@ operatorUnsignedRightShift left right = do
   let shiftCount = fromInteger . Prelude.toInteger $ rnum .&. 0x1F
   return $ Number $ fromIntegral $ shiftR lnum shiftCount
 
-operatorBitwiseAnd :: (SubType v1 CallValue, SubType v2 CallValue) =>
-                      v1 -> v2 -> JavaScriptM Number
+operatorBitwiseAnd :: CallValue -> CallValue -> JavaScriptM Number
 operatorBitwiseAnd left right = do
   lval <- getValue left
   rval <- getValue right
@@ -7155,8 +7132,7 @@ operatorBitwiseAnd left right = do
   rnum <- toInt32 rval
   return $ Number $ fromIntegral $ lnum .&. rnum
 
-operatorBitwiseXor :: (SubType v1 CallValue, SubType v2 CallValue) =>
-                      v1 -> v2 -> JavaScriptM Number
+operatorBitwiseXor :: CallValue -> CallValue -> JavaScriptM Number
 operatorBitwiseXor left right = do
   lval <- getValue left
   rval <- getValue right
@@ -7164,8 +7140,7 @@ operatorBitwiseXor left right = do
   rnum <- toInt32 rval
   return $ Number $ fromIntegral $ lnum `xor` rnum
 
-operatorBitwiseOr :: (SubType v1 CallValue, SubType v2 CallValue) =>
-                     v1 -> v2 -> JavaScriptM Number
+operatorBitwiseOr :: CallValue -> CallValue -> JavaScriptM Number
 operatorBitwiseOr left right = do
   lval <- getValue left
   rval <- getValue right

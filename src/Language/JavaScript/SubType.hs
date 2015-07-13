@@ -1,6 +1,4 @@
-{-# LANGUAGE OverlappingInstances,
-             FlexibleInstances,
-             IncoherentInstances,
+{-# LANGUAGE FlexibleInstances,
              MultiParamTypeClasses,
              TypeOperators,
              TypeSynonymInstances #-}
@@ -13,31 +11,34 @@ import Control.Monad (join)
 type a + b = Either a b
 infixr 6 +
 
-class SubType sub sup where
+class Inject sub sup where
   inj :: sub -> sup
+
+instance Inject a a where
+  inj = id
+
+instance Inject a (a + b) where
+  inj = Left
+
+class Project sup sub where
   prj :: sup -> Maybe sub
 
-instance SubType a a where
-  inj = id
+instance Project a a where
   prj = Just
 
-instance SubType a (a + b) where
-  inj = Left
-  prj (Left x) = Just x
+instance (Project a c) => Project (a + b) c where
+  prj (Left x) = prj x
   prj _ = Nothing
 
-instance (SubType a c) => SubType a (b + c) where
-  inj = Right . inj
-  prj (Right c) = prj c
-  prj _ = Nothing
+s :: a + c -> a + b + c
+s (Left v) = Left v
+s (Right v) = Right . Right $ v
 
-instance (SubType b d) => SubType (a + b) (a + c + d) where
-  inj (Left a) = Left a
-  inj (Right b) = Right . Right $ inj b
-  prj (Left a) = Just (Left a)
-  prj (Right (Left _)) = Nothing
-  prj (Right (Right d)) = Right `fmap` prj d
+s2 :: a + b + d -> a + b + c + d
+s2 (Left v) = Left v
+s2 (Right (Left v)) = Right . Left $ v
+s2 (Right (Right v)) = Right . Right . Right $ v
 
-instance SubType a b => SubType a (Maybe b) where
-  inj = Just . inj
-  prj a = join $ fmap prj a
+r = Right
+
+l = Left

@@ -95,6 +95,6 @@ console = do
 
 consoleLogCallImpl :: (Functor m, Monad m, MonadIO m) => InternalCallType m
 consoleLogCallImpl f this (List args) = do
-  forM (intersperse (inj " ") args) $ \v -> toString v >>= liftIO . putStr
+  forM (intersperse (r.r.r.r.inj $ " ") args) $ \v -> toString v >>= liftIO . putStr
   liftIO $ putStrLn ""
-  return (inj Undefined)
+  return . r.r.r.inj $ Undefined
